@@ -82,6 +82,24 @@ describe('findMatches1to1', () => {
     expect(findMatches1to1([])).toEqual([]);
     expect(findMatches1to1(null)).toEqual([]);
   });
+    it('propaga score_details do candidato para o match', () => {
+    const candidates = [
+      {
+        a_id: 'A0',
+        b_id: 'B0',
+        score: 90,
+        score_details: { total: 90, value: 50, date: 20, text: 20 },
+      },
+    ];
+    const matches = findMatches1to1(candidates);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].score_details).toEqual({
+      total: 90,
+      value: 50,
+      date: 20,
+      text: 20,
+    });
+  });
 });
 
 describe('findBatchMatches', () => {

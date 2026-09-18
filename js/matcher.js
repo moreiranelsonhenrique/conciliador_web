@@ -101,6 +101,7 @@ export function findMatches1to1(candidates, config = {}) {
             a_id: aId,
             b_id: cands[i].b_id,
             score: cands[i].score,
+            score_details: cands[i].score_details,
             status: 'CONCILIADO',
             justification: `Match com score ${cands[i].score}`,
           });
@@ -128,6 +129,7 @@ export function findMatches1to1(candidates, config = {}) {
       a_id: aId,
       b_id: best.b_id,
       score: best.score,
+      score_details: best.score_details,
       status,
       justification,
     });
