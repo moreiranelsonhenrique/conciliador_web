@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from '../js/vendor/xlsx.mjs';
-import { parseCSVString, parseExcel } from '../js/reader.js';
+import { parseCSVString, parseExcel, parseCSVRows, parseExcelRows } from '../js/reader.js';
 
 describe('parseCSVString', () => {
   it('lê CSV simples com cabeçalho', () => {
@@ -110,5 +110,43 @@ describe('parseExcel', () => {
 
   it('lança erro se buffer for nulo', () => {
     expect(() => parseExcel(null)).toThrow(TypeError);
+  });
+});
+
+describe('parseCSVRows', () => {
+  it('retorna array de arrays sem assumir cabeçalho', () => {
+    const csv = 'Banco XYZ\nData,Valor\n15/09/2026,1500.00';
+    const rows = parseCSVRows(csv);
+    expect(rows).toEqual([
+      ['Banco XYZ'],
+      ['Data', 'Valor'],
+      ['15/09/2026', '1500.00'],
+    ]);
+  });
+
+  it('lança erro para não-string', () => {
+    expect(() => parseCSVRows(null)).toThrow(TypeError);
+  });
+});
+
+describe('parseExcelRows', () => {
+  it('retorna array de arrays', () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Data', 'Valor'],
+      ['15/09/2026', '1500.00'],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const rows = parseExcelRows(buffer);
+    expect(rows).toEqual([
+      ['Data', 'Valor'],
+      ['15/09/2026', '1500.00'],
+    ]);
+  });
+
+  it('lança erro se buffer for nulo', () => {
+    expect(() => parseExcelRows(null)).toThrow(TypeError);
   });
 });

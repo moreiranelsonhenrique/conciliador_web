@@ -105,4 +105,15 @@ describe('readFile', () => {
     expect(result.rows).toEqual([]);
     expect(result.columns).toEqual([]);
   });
+  it('detecta cabeçalho após linhas de título', async () => {
+    const csvContent = 'Banco XYZ\nPeríodo: Setembro/2026\nData,Valor\n15/09/2026,1500.00';
+    const mockFile = new File([csvContent], 'extrato.csv', { type: 'text/csv' });
+
+    const result = await readFile(mockFile);
+
+    expect(result.headerRowIndex).toBe(2);
+    expect(result.columns).toEqual(['Data', 'Valor']);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].Data).toBe('15/09/2026');
+  });
 });
