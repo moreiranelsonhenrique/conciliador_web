@@ -7,7 +7,90 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <h1>Conciliador Financeiro Inteligente</h1>
-    <p>V6 — versão web em construção.</p>
+    <!-- Cabeçalho -->
+    <header class="hero-header">
+        <h1>Conciliador Financeiro Inteligente</h1>
+        <p>Compare extratos bancários com seu financeiro de forma rápida e confiável</p>
+    </header>
+
+    <main class="container">
+        <!-- Seção 1: Upload -->
+        <section id="section-upload" class="section">
+            <h2>📎 Carregar Arquivos</h2>
+            <div class="upload-grid">
+                <div class="upload-card">
+                    <h3>Arquivo A (Banco/Extrato)</h3>
+                    <input type="file" id="file-a" accept=".csv,.xlsx,.xls,.ofx">
+                    <div id="status-a" class="file-status"></div>
+                </div>
+                <div class="upload-card">
+                    <h3>Arquivo B (Financeiro)</h3>
+                    <input type="file" id="file-b" accept=".csv,.xlsx,.xls,.ofx">
+                    <div id="status-b" class="file-status"></div>
+                </div>
+            </div>
+            <button id="btn-analisar" class="btn btn-secondary" disabled>🔍 Analisar Arquivos</button>
+        </section>
+
+        <!-- Seção 2: Mapeamento -->
+        <section id="section-mapeamento" class="section hidden">
+            <h2>⚙️ Mapeamento de Colunas</h2>
+            <p class="hint">O sistema tentou identificar as colunas automaticamente. Se algo estiver errado, ajuste aqui.</p>
+            <div class="mapping-grid">
+                <div class="mapping-card">
+                    <h3>Arquivo A</h3>
+                    <div id="mapping-a"></div>
+                </div>
+                <div class="mapping-card">
+                    <h3>Arquivo B</h3>
+                    <div id="mapping-b"></div>
+                </div>
+            </div>
+            <div class="config-section">
+                <h3>Configurações de Conciliação</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="value-tol">Tolerância Valor (R$)</label>
+                        <input type="number" id="value-tol" value="0.01" step="0.01" min="0">
+                    </div>
+                    <div class="config-item">
+                        <label for="date-tol">Tolerância Data (dias)</label>
+                        <input type="number" id="date-tol" value="2" step="1" min="0">
+                    </div>
+                    <div class="config-item">
+                        <label for="text-tol">Similaridade Texto Mínima (%)</label>
+                        <input type="number" id="text-tol" value="50" step="1" min="0" max="100">
+                    </div>
+                </div>
+            </div>
+            <button id="btn-conciliar" class="btn btn-primary">🚀 Conciliar</button>
+        </section>
+
+        <!-- Seção 3: Resultados -->
+        <section id="section-resultados" class="section hidden">
+            <h2>📊 Resultados da Conciliação</h2>
+            <div id="resumo-financeiro"></div>
+            <div id="filtros"></div>
+            <div id="lista-resultados"></div>
+            <button id="btn-exportar" class="btn btn-primary">📥 Exportar Resultados para Excel</button>
+        </section>
+
+        <!-- Mensagens -->
+        <div id="mensagem-global" class="mensagem hidden"></div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="footer-portfolio">
+        <div class="footer-links">
+            <a href="https://github.com/moreiranelsonhenrique" target="_blank" title="GitHub">GitHub</a>
+            <a href="https://www.linkedin.com/in/moreiranh/" target="_blank" title="LinkedIn">LinkedIn</a>
+            <a href="https://moreiranelsonhenrique.github.io" target="_blank" title="Portfólio">Portfólio</a>
+        </div>
+        <div class="footer-author">
+            Desenvolvido por <strong>Nelson Henrique Moreira</strong> · Versão 6.0 (Web)
+        </div>
+    </footer>
+
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
