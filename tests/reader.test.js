@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseCSVString } from '../js/reader.js';
+import * as XLSX from '../js/vendor/xlsx.mjs';
+import { parseCSVString, parseExcel } from '../js/reader.js';
 
 describe('parseCSVString', () => {
   it('lê CSV simples com cabeçalho', () => {
@@ -42,7 +43,6 @@ describe('parseCSVString', () => {
   });
 
   it('lê arquivo v1_banco.csv (estrutura esperada)', () => {
-    // Replica a estrutura do sample de validação v1_banco.csv
     const csv = `Data,Descricao,Valor,D/C
 15/09/2026,RECEBIMENTO PIX,4500.50,C
 15/09/2026,TARIFA BANCARIA,15.90,D
@@ -64,5 +64,51 @@ describe('parseCSVString', () => {
   it('lança erro se o argumento não for string', () => {
     expect(() => parseCSVString(null)).toThrow(TypeError);
     expect(() => parseCSVString(123)).toThrow(TypeError);
+  });
+});
+
+describe('parseExcel', () => {
+  it('lê Excel simples com cabeçalho', () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Data', 'Descricao', 'Valor'],
+      ['15/09/2026', 'PAGTO FORNECEDOR', '1500.00'],
+      ['16/09/2026', 'RECEBIMENTO PIX', '2000.50'],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const rows = parseExcel(buffer);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].Data).toBe('15/09/2026');
+    expect(rows[0].Descricao).toBe('PAGTO FORNECEDOR');
+    expect(rows[0].Valor).toBe('1500.00');
+  });
+
+  it('retorna array vazio se aba existe mas está vazia', () => {
+    const ws = XLSX.utils.aoa_to_sheet([]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const rows = parseExcel(buffer);
+    expect(rows).toEqual([]);
+  });
+
+  it('trata células vazias como string vazia', () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Data', 'Descricao'],
+      ['15/09/2026', null],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const rows = parseExcel(buffer);
+    expect(rows[0].Descricao).toBe('');
+  });
+
+  it('lança erro se buffer for nulo', () => {
+    expect(() => parseExcel(null)).toThrow(TypeError);
   });
 });
