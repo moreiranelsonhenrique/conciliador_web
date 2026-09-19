@@ -105,6 +105,38 @@ function buildExportRow(result, reviewable = null) {
  * @param {string} [options.sheetName]  Nome da aba
  * @returns {Object}  { fileName, workbook, blob }
  */
+/**
+ * Constrói as linhas da aba Detalhe_dos_Lotes (uma linha por item de lote).
+ * Espelha a aba "Detalhe_dos_Lotes" da versão Streamlit, para comparação lado a lado.
+ *
+ * @param {Array<Object>} results  Resultados (puros ou ReviewableResult)
+ * @returns {Array<Object>}  Linhas de detalhe de lote
+ */
+function buildBatchDetailRows(results) {
+  const detailRows = [];
+  for (const item of results || []) {
+    const result = item && item.result ? item.result : item;
+    if (!result || !Array.isArray(result.batch_items) || result.batch_items.length === 0) {
+      continue;
+    }
+    const a = result.a || {};
+    const loteId = `LOTE-A${a.original_row ?? ''}`;
+    for (const bi of result.batch_items) {
+      detailRows.push({
+        'id_lote': loteId,
+        'linha_a': a.original_row ?? '',
+        'descricao_a': a.description_original || '',
+        'valor_a': formatValueBR(a.value),
+        'linha_b': bi.original_row ?? '',
+        'data_b': formatDateBR(bi.date),
+        'descricao_b': bi.description_original || '',
+        'valor_b': formatValueBR(bi.value),
+        'direcao_b': bi.direction || '',
+      });
+    }
+  }
+  return detailRows;
+}
 export function exportToExcel(results, options = {}) {
   const fileName = options.fileName || 'conciliacao_resultado';
   const sheetName = options.sheetName || 'Conciliação';
@@ -159,6 +191,17 @@ export function exportToExcel(results, options = {}) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
+    // Microentrega B: aba Detalhe_dos_Lotes (uma linha por item de lote)
+  const batchDetailRows = buildBatchDetailRows(results);
+  if (batchDetailRows.length > 0) {
+    const wsLotes = XLSX.utils.json_to_sheet(batchDetailRows);
+    const loteColWidths = Object.keys(batchDetailRows[0]).map((key) => ({
+      wch: Math.max(key.length + 2, 12),
+    }));
+    wsLotes['!cols'] = loteColWidths;
+    XLSX.utils.book_append_sheet(wb, wsLotes, 'Detalhe_dos_Lotes');
+  }
+
   // Gera blob para download (funciona no navegador)
   let blob = null;
   if (typeof Blob !== 'undefined') {
@@ -173,6 +216,7 @@ export function exportToExcel(results, options = {}) {
     workbook: wb,
     blob,
     rows,
+    batchDetailRows,
   };
 }
 

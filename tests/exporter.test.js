@@ -152,4 +152,28 @@ describe('exportToExcel', () => {
     const output = exportToExcel([rv1, rv2], { unmatchedB: [rv1, rv2], recordsB: [b0, b1] });
     expect(output.rows).toHaveLength(2); // apenas as 2 linhas de A
   });
+    it('cria aba Detalhe_dos_Lotes quando há lotes', () => {
+    const a = makeRecord('A0', 'A', '3000.00', '2026-09-15', 'PAGTO LOTE');
+    const b1 = makeRecord('B0', 'B', '1000.00', '2026-09-15', 'ITEM 1');
+    const b2 = makeRecord('B1', 'B', '2000.00', '2026-09-15', 'ITEM 2');
+    const results = [makeResult(a, null, [b1, b2])];
+    const output = exportToExcel(results);
+    expect(output.workbook.SheetNames).toContain('Detalhe_dos_Lotes');
+    expect(output.batchDetailRows).toHaveLength(2);
+    expect(output.batchDetailRows[0]['id_lote']).toBe('LOTE-A1');
+    expect(output.batchDetailRows[0]['linha_a']).toBe(1);
+    expect(output.batchDetailRows[0]['linha_b']).toBe(1);
+    expect(output.batchDetailRows[0]['descricao_b']).toBe('ITEM 1');
+    expect(output.batchDetailRows[1]['linha_b']).toBe(2);
+    expect(output.batchDetailRows[1]['descricao_b']).toBe('ITEM 2');
+  });
+
+  it('não cria aba Detalhe_dos_Lotes quando não há lotes', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const results = [makeResult(a, b)];
+    const output = exportToExcel(results);
+    expect(output.workbook.SheetNames).not.toContain('Detalhe_dos_Lotes');
+    expect(output.batchDetailRows).toEqual([]);
+  });
 });
