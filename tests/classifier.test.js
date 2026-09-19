@@ -136,7 +136,7 @@ describe('classifyMatch1to1', () => {
 });
 
 describe('classifyBatchMatch', () => {
-  it('classifica lote como CONCILIADO quando itens encontrados', () => {
+  it('classifica lote como POSSÍVEL CORRESPONDÊNCIA (revisão humana obrigatória)', () => {
     const batchMatch = { a_id: 'A0', b_ids: ['B0', 'B1', 'B2'] };
     const recordA = { id: 'A0', value: new Decimal('3000') };
     const recordsB = [
@@ -145,9 +145,22 @@ describe('classifyBatchMatch', () => {
       { id: 'B2', value: new Decimal('1000') },
     ];
     const result = classifyBatchMatch(batchMatch, recordA, recordsB);
-    expect(result.status).toBe('CONCILIADO');
+    expect(result.status).toBe('POSSÍVEL CORRESPONDÊNCIA');
     expect(result.justification).toContain('3 itens');
     expect(result.batch_items).toHaveLength(3);
+    expect(result.alerts).toContain('Lote detectado: confirmação humana obrigatória');
+  });
+
+  it('lote nunca é CONCILIADO automático', () => {
+    const batchMatch = { a_id: 'A0', b_ids: ['B0', 'B1'] };
+    const recordA = { id: 'A0', value: new Decimal('3000') };
+    const recordsB = [
+      { id: 'B0', value: new Decimal('1000') },
+      { id: 'B1', value: new Decimal('2000') },
+    ];
+    const result = classifyBatchMatch(batchMatch, recordA, recordsB);
+    expect(result.status).not.toBe('CONCILIADO');
+    expect(result.status).toBe('POSSÍVEL CORRESPONDÊNCIA');
   });
 
   it('classifica como NÃO ENCONTRADO quando lote vazio', () => {

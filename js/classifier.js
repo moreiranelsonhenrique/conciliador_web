@@ -141,9 +141,9 @@ export function classifyBatchMatch(batchMatch, recordA, recordsB) {
   }
 
   return {
-    status: 'CONCILIADO',
-    justification: `Lote com ${batchItems.length} itens`,
-    alerts: [],
+    status: 'POSSÍVEL CORRESPONDÊNCIA',
+    justification: `Lote com ${batchItems.length} itens — revisão humana obrigatória`,
+    alerts: ['Lote detectado: confirmação humana obrigatória'],
     batch_items: batchItems,
   };
 }

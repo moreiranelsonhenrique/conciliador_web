@@ -55,7 +55,7 @@ describe('reconcile', () => {
     const results = reconcile(a, b);
 
     expect(results).toHaveLength(1);
-    expect(results[0].status).toBe('CONCILIADO');
+    expect(results[0].status).toBe('POSSÍVEL CORRESPONDÊNCIA');
     expect(results[0].batch_items).toHaveLength(3);
     expect(results[0].b).toBeNull();
   });
