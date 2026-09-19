@@ -73,8 +73,10 @@ describe('readFile', () => {
 
     expect(result.type).toBe('ofx');
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].TRNTYPE).toBe('DEBIT');
-    expect(result.columns).toContain('TRNTYPE');
+    expect(result.rows[0]['Tipo']).toBe('DEBIT');
+    expect(result.rows[0]['Data']).toBe('15/09/2026');
+    expect(result.columns).toContain('Data');
+    expect(result.columns).toContain('Valor');
   });
 
   it('lê Excel e retorna rows', async () => {

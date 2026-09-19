@@ -1,60 +1,51 @@
 /**
- * Faz o parse de um texto OFX (formato SGML ou XML) e retorna uma lista de transações.
- *
- * OFX é o formato padrão de extratos bancários brasileiros.
- * Cada transação (STMTTRN) contém: TRNTYPE, DTPOSTED, TRNAMT, FITID, NAME, MEMO.
+ * Leitura de arquivos OFX (formato padrão de extratos bancários brasileiros).
+ * Microentrega 30: colunas com nomes amigáveis em português, porque os códigos
+ * crus do OFX (TRNTYPE, DTPOSTED, TRNAMT...) confundem o usuário no mapeamento.
+ */
+
+/**
+ * Faz o parse de um texto OFX (formato SGML ou XML) e retorna uma lista de
+ * transações com colunas amigáveis:
+ * Data, Valor, Descrição, Observação, Tipo, ID Transação.
  *
  * @param {string} ofxText  Texto bruto do arquivo OFX
- * @returns {Array<Object>}  Array de objetos com campos normalizados
+ * @returns {Array<Object>}  Array de objetos com colunas amigáveis
  */
 export function parseOFXString(ofxText) {
   if (typeof ofxText !== 'string') {
     throw new TypeError('parseOFXString espera uma string como primeiro argumento.');
   }
-
   const transactions = [];
-
   // Extrai todos os blocos STMTTRN (funciona para SGML e XML)
   const trnBlocks = ofxText.match(/<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi) || [];
-
   for (const block of trnBlocks) {
-    const trn = {};
-
-    // Extrai cada campo do bloco
-    trn.TRNTYPE = extractTag(block, 'TRNTYPE');
-    trn.DTPOSTED = extractTag(block, 'DTPOSTED');
-    trn.TRNAMT = extractTag(block, 'TRNAMT');
-    trn.FITID = extractTag(block, 'FITID');
-    trn.NAME = extractTag(block, 'NAME');
-    trn.MEMO = extractTag(block, 'MEMO');
-
-    // Converte TRNAMT para número com sinal
-    // OFX usa sinal direto: negativo = débito/saída, positivo = crédito/entrada
-    if (trn.TRNAMT) {
-      trn.TRNAMT_NUM = parseFloat(trn.TRNAMT);
-    }
-
-    // Converte DTPOSTED de YYYYMMDDHHMMSS para formato legível
-    if (trn.DTPOSTED && trn.DTPOSTED.length >= 8) {
-      const year = trn.DTPOSTED.substring(0, 4);
-      const month = trn.DTPOSTED.substring(4, 6);
-      const day = trn.DTPOSTED.substring(6, 8);
-      trn.DTPOSTED_FORMATTED = `${year}-${month}-${day}`;
-    }
-
-    // Determina direção baseada no sinal de TRNAMT
-    if (trn.TRNAMT_NUM < 0) {
-      trn.DIRECTION = 'D'; // Débito/Saída
-    } else if (trn.TRNAMT_NUM > 0) {
-      trn.DIRECTION = 'C'; // Crédito/Entrada
-    } else {
-      trn.DIRECTION = '';
-    }
-
-    transactions.push(trn);
+    const name = extractTag(block, 'NAME');
+    const memo = extractTag(block, 'MEMO');
+    transactions.push({
+      'Data': formatOfxDate(extractTag(block, 'DTPOSTED')),
+      'Valor': extractTag(block, 'TRNAMT'),
+      // Alguns bancos não enviam NAME; nesse caso o MEMO é a descrição útil
+      'Descrição': name || memo,
+      'Observação': memo,
+      'Tipo': extractTag(block, 'TRNTYPE'),
+      'ID Transação': extractTag(block, 'FITID'),
+    });
   }
-
   return transactions;
+}
+
+/**
+ * Converte DTPOSTED (YYYYMMDDHHMMSS...) para dd/mm/yyyy.
+ * @param {string} dtposted
+ * @returns {string}  Data formatada ou string vazia
+ */
+function formatOfxDate(dtposted) {
+  if (!dtposted || dtposted.length < 8) return '';
+  const year = dtposted.substring(0, 4);
+  const month = dtposted.substring(4, 6);
+  const day = dtposted.substring(6, 8);
+  return `${day}/${month}/${year}`;
 }
 
 /**
@@ -72,14 +63,11 @@ function extractTag(block, tagName) {
   if (xmlMatch) {
     return xmlMatch[1].trim();
   }
-
   // Formato SGML: <TAG>valor (sem tag de fechamento)
-  // O valor termina na próxima tag ou fim da linha
   const sgmlRegex = new RegExp(`<${tagName}>([^<\\r\\n]*)`, 'i');
   const sgmlMatch = block.match(sgmlRegex);
   if (sgmlMatch) {
     return sgmlMatch[1].trim();
   }
-
   return '';
 }

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { parseOFXString } from '../js/ofxReader.js';
+import { inferMapping } from '../js/mapper.js';
 
-const OFX_SAMPLE_XML = `OFXHEADER:100
+const OFX_SAMPLE = `OFXHEADER:100
 DATA:OFXSGML
 VERSION:102
 SECURITY:NONE
@@ -10,7 +11,6 @@ CHARSET:1252
 COMPRESSION:NONE
 OLDFILEUID:NONE
 NEWFILEUID:NONE
-
 <OFX>
 <SIGNONMSGSRSV1>
 <SONRS>
@@ -63,63 +63,67 @@ NEWFILEUID:NONE
 
 describe('parseOFXString', () => {
   it('lê OFX com duas transações', () => {
-    const transactions = parseOFXString(OFX_SAMPLE_XML);
-    expect(transactions).toHaveLength(2);
+    expect(parseOFXString(OFX_SAMPLE)).toHaveLength(2);
   });
 
-  it('extrai campos da transação de débito', () => {
-    const transactions = parseOFXString(OFX_SAMPLE_XML);
-    const debit = transactions[0];
-    expect(debit.TRNTYPE).toBe('DEBIT');
-    expect(debit.DTPOSTED).toBe('20260915120000');
-    expect(debit.DTPOSTED_FORMATTED).toBe('2026-09-15');
-    expect(debit.TRNAMT).toBe('-1570.00');
-    expect(debit.TRNAMT_NUM).toBe(-1570.00);
-    expect(debit.FITID).toBe('20260915001');
-    expect(debit.NAME).toBe('PAGTO FORNECEDOR A');
-    expect(debit.MEMO).toBe('PAGAMENTO EFETUADO');
-    expect(debit.DIRECTION).toBe('D');
+  it('extrai campos da transação de débito com colunas amigáveis', () => {
+    const [debit] = parseOFXString(OFX_SAMPLE);
+    expect(debit['Tipo']).toBe('DEBIT');
+    expect(debit['Data']).toBe('15/09/2026');
+    expect(debit['Valor']).toBe('-1570.00');
+    expect(debit['ID Transação']).toBe('20260915001');
+    expect(debit['Descrição']).toBe('PAGTO FORNECEDOR A');
+    expect(debit['Observação']).toBe('PAGAMENTO EFETUADO');
   });
 
   it('extrai campos da transação de crédito', () => {
-    const transactions = parseOFXString(OFX_SAMPLE_XML);
-    const credit = transactions[1];
-    expect(credit.TRNTYPE).toBe('CREDIT');
-    expect(credit.DTPOSTED).toBe('20260915120000');
-    expect(credit.DTPOSTED_FORMATTED).toBe('2026-09-15');
-    expect(credit.TRNAMT).toBe('4500.50');
-    expect(credit.TRNAMT_NUM).toBe(4500.50);
-    expect(credit.FITID).toBe('20260915002');
-    expect(credit.NAME).toBe('RECEBIMENTO PIX');
-    expect(credit.MEMO).toBe('CREDITO RECEBIDO');
-    expect(credit.DIRECTION).toBe('C');
+    const [, credit] = parseOFXString(OFX_SAMPLE);
+    expect(credit['Tipo']).toBe('CREDIT');
+    expect(credit['Valor']).toBe('4500.50');
+    expect(credit['Descrição']).toBe('RECEBIMENTO PIX');
   });
 
-  it('converte data YYYYMMDDHHMMSS para formato legível', () => {
-    const transactions = parseOFXString(OFX_SAMPLE_XML);
-    expect(transactions[0].DTPOSTED_FORMATTED).toBe('2026-09-15');
+  it('converte DTPOSTED para dd/mm/yyyy', () => {
+    const [debit] = parseOFXString(OFX_SAMPLE);
+    expect(debit['Data']).toBe('15/09/2026');
   });
 
-  it('determina direção D para valor negativo', () => {
-    const transactions = parseOFXString(OFX_SAMPLE_XML);
-    expect(transactions[0].TRNAMT_NUM).toBeLessThan(0);
-    expect(transactions[0].DIRECTION).toBe('D');
+  it('não expõe códigos crus de OFX', () => {
+    const [debit] = parseOFXString(OFX_SAMPLE);
+    expect(debit).not.toHaveProperty('TRNTYPE');
+    expect(debit).not.toHaveProperty('DTPOSTED');
+    expect(debit).not.toHaveProperty('TRNAMT');
+    expect(debit).not.toHaveProperty('FITID');
+    expect(debit).not.toHaveProperty('NAME');
+    expect(debit).not.toHaveProperty('MEMO');
   });
 
-  it('determina direção C para valor positivo', () => {
-    const transactions = parseOFXString(OFX_SAMPLE_XML);
-    expect(transactions[1].TRNAMT_NUM).toBeGreaterThan(0);
-    expect(transactions[1].DIRECTION).toBe('C');
+  it('mantém sinal do valor (negativo para débito)', () => {
+    const [debit] = parseOFXString(OFX_SAMPLE);
+    expect(Number(debit['Valor'])).toBeLessThan(0);
+  });
+
+  it('usa MEMO como Descrição quando NAME não existe', () => {
+    const ofxSemName = `<OFX><STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260915120000<TRNAMT>-100.00<FITID>1<MEMO>TARIFA QUALQUER</STMTTRN></OFX>`;
+    const [trn] = parseOFXString(ofxSemName);
+    expect(trn['Descrição']).toBe('TARIFA QUALQUER');
   });
 
   it('retorna array vazio para OFX sem transações', () => {
-    const emptyOFX = `<OFX><BANKMSGSRSV1></BANKMSGSRSV1></OFX>`;
-    const transactions = parseOFXString(emptyOFX);
-    expect(transactions).toEqual([]);
+    expect(parseOFXString(`<OFX><BANKMSGSRSV1></BANKMSGSRSV1></OFX>`)).toEqual([]);
   });
 
   it('lança erro se argumento não for string', () => {
     expect(() => parseOFXString(null)).toThrow(TypeError);
     expect(() => parseOFXString(123)).toThrow(TypeError);
+  });
+
+  it('colunas amigáveis são reconhecidas pelo mapeamento automático', () => {
+    const [debit] = parseOFXString(OFX_SAMPLE);
+    const mapping = inferMapping(Object.keys(debit));
+    expect(mapping.date).toBe('Data');
+    expect(mapping.value).toBe('Valor');
+    expect(mapping.description).toBe('Descrição');
+    expect(mapping.type).toBe('Tipo');
   });
 });
