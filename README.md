@@ -1,31 +1,30 @@
 # 💰 Conciliador Financeiro Inteligente — V6 Web
 
 **Versão 100% no navegador, sem backend, privacidade total.**
-
 Os dados dos seus arquivos **nunca saem do seu computador**. Todo o processamento acontece no navegador.
 
 ## 🎯 O que faz
-
 Concilia extratos bancários (Arquivo A) com controle financeiro (Arquivo B):
-
-- Detecta automaticamente colunas (Data, Valor, Descrição, D/C)
-- Cruza registros por valor, data e similaridade textual
-- Detecta conciliações em lote (1:N)
-- Permite revisão humana: confirmar, rejeitar, corrigir
-- Exporta Excel com todos os detalhes
+- Aceita CSV, XLSX, XLS e OFX, com detecção automática de cabeçalho e delimitador
+- Mapeamento automático de colunas (Data, Valor, Descrição, D/C, Tipo) com revisão manual
+- Matching 1:1 com score ponderado (valor 50 / data 20 / texto 30) e tolerâncias configuráveis
+- Conciliação em lote (1:N) com itens exibidos inline e detecção de ambiguidade
+- Status: CONCILIADO, POSSÍVEL CORRESPONDÊNCIA, DIVERGÊNCIA, NÃO ENCONTRADO
+- Revisão humana: confirmar, rejeitar e corrigir vínculo (com auditoria do vínculo original)
+- Sobras do Arquivo B (registros sem correspondente) destacadas
+- Exportação Excel com 2 abas (Conciliação + Detalhe dos Lotes), moeda e datas formatadas
 
 ## 🚀 Stack
-
 | Tecnologia | Para que |
 |---|---|
-| HTML + CSS + JavaScript | Interface |
+| HTML + CSS + JavaScript (ES modules) | Interface |
 | [decimal.js](https://github.com/MikeMcl/decimal.js/) | Precisão financeira (nunca usa float) |
 | [PapaParse](https://www.papaparse.com/) | Leitura de CSV |
+| SheetJS 0.20.3 (vendor oficial) | Leitura e escrita de Excel |
 | [Vite](https://vite.dev/) | Dev server e build |
-| [Vitest](https://vitest.dev/) | Testes automatizados |
+| [Vitest](https://vitest.dev/) | Testes automatizados (296 testes) |
 
 ## 📦 Instalação
-
 ```bash
 git clone <seu-repo>
 cd conciliador_web
@@ -34,37 +33,33 @@ npm run dev
 
 Abra http://localhost:5173 no navegador.
 
-🧪 Testes
-
 npm test
 
-📄 Estrutura
+🏗️ Build de produção
 
+npm run build
+npm run preview
+
+📄 Estrutura
 conciliador_web/
-├── index.html          # Página principal
-├── css/
-│   └── style.css       # Estilos
-├── js/
-│   ├── money.js        # Formatação monetária (R$ 1.234,56)
-│   └── reader.js       # Leitura de CSV
-├── tests/
-│   ├── sanity.test.js  # Teste de sanidade
-│   ├── money.test.js   # Testes de formatação
-│   └── reader.test.js  # Testes de leitura
-└── samples/            # Arquivos de exemplo (a criar)
+├── index.html # Página principal (SPA)
+├── css/style.css # Estilos
+├── js/ # Módulos de negócio, UI e orquestração (ver HANDOFF.md)
+├── tests/ # Testes Vitest
+├── samples/ # Arquivos de exemplo (cenários V1–V9)
+├── HANDOFF.md # Guia de continuidade do projeto
+├── SPEC_V6_WEB.md # Especificação funcional
+├── ARQUITETURA.md # Arquitetura técnica
+└── VALIDACAO_WEB.md # Validação ponta a ponta
 
 📊 Status
-Setup inicial (Node + Vite + Vitest)
-Precisão decimal (decimal.js + formatBRL)
-Leitura de CSV (PapaParse)
-Leitura de Excel (SheetJS)
-Leitura de OFX (parser próprio)
-Mapeamento automático de colunas
-Motor de conciliação (1:1 e 1:N)
-Interface de revisão humana
-Exportação Excel
+Motor de conciliação completo e testado
+Interface de revisão humana (cartões, lotes inline, filtros)
+Exportação Excel completa
+Validação ponta a ponta (V1–V9 + estresse 30 dias)
+Publicação no GitHub Pages (próxima etapa)
 
-👨‍💼 Autor
+👨💼 Autor
 Nelson Henrique Moreira
 GitHub: moreiranelsonhenrique
 LinkedIn: moreiranh

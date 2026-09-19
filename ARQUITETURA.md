@@ -73,23 +73,28 @@ conciliador_web/
 
 ## 4. Módulos (Responsabilidades)
 
-### 4.1 `money.js` (implementado)
+### 4.1 Módulos de negócio (puros, sem DOM)
+- `money.js` — Formatação R$ com decimal.js (HALF_EVEN)
+- `reader.js` — Leitura CSV (PapaParse) e Excel (SheetJS)
+- `ofxReader.js` — Leitura OFX (parser próprio)
+- `headerDetection.js` — Detecção automática de linha de cabeçalho
+- `mapper.js` — Inferência de mapeamento de colunas
+- `direction.js` — Normalização de direção PT/EN → ENTRADA/SAIDA/INDEFINIDO
+- `records.js` — Normalização e validação de registros (parseDate, parseValue, buildRecords)
+- `scorer.js` — Scoring ponderado (valor 50 / data 20 / texto 30)
+- `matcher.js` — Matching 1:1 (greedy) e 1:N (lotes com busca combinatória limitada)
+- `classifier.js` — Classificação final (CONCILIADO, POSSÍVEL, DIVERGÊNCIA, NÃO ENCONTRADO)
+- `engine.js` — Orquestração: gera candidatos → matches 1:1 → lotes → classifica
+- `review.js` — Estado de revisão humana (BRegistry, ReviewableResult)
+- `exporter.js` — Exportação Excel (SheetJS) + sobras de B
 
-- `formatBRL(value)` → "R$ 1.234,56"
-- Usa `decimal.js` para precisão financeira
-- Arredondamento HALF_EVEN (banker's rounding)
+### 4.2 Módulos de UI (lógica pura, sem DOM)
+- `mappingUi.js` — Gera HTML de selects de mapeamento + valida mapeamento + normaliza config
+- `resultsUi.js` — Gera HTML de cartões, tabela de resumo, filtros + findUnmatchedB (sobras de B)
+- `reviewUi.js` — Gera HTML de botões de ação (confirmar/rejeitar/corrigir) e formulário de correção
 
-### 4.2 `reader.js` (parcialmente implementado)
-
-- `parseCSVString(csvText, options)` → Array de objetos
-- `parseExcel(file)` → Array de objetos (a implementar com SheetJS)
-- `parseOFX(text)` → Array de objetos (a implementar)
-
-### 4.3 `mapper.js` (a criar)
-
-- `inferMapping(rows)` → `{ date, value, description, dc, type }`
-- Heurística baseada em nomes de colunas e conteúdo
-- Similar ao `core/mapper_v1.py` do projeto Streamlit
+### 4.3 Orquestração (com DOM)
+- `main.js` — Liga eventos do DOM aos módulos puros, gerencia estado global da sessão
 
 ### 4.4 `records.js` (a criar)
 
@@ -138,7 +143,7 @@ conciliador_web/
 |---|---|---|
 | `decimal.js` | ^10.4.3 | Precisão financeira |
 | `papaparse` | ^5.4.1 | Leitura de CSV |
-| `xlsx` (SheetJS) | ^0.18.5 | Leitura e escrita de Excel (a instalar) |
+| SheetJS | 0.20.3 (vendor) | Leitura e escrita de Excel via `js/vendor/xlsx.mjs` (npm `xlsx` 0.18.5 tem vulnerabilidade alta — não usar) |
 | `vite` | ^5.0.0 | Dev server e build |
 | `vitest` | ^1.0.0 | Testes automatizados |
 
@@ -197,8 +202,9 @@ npm test --watch  # Modo watch (reexecuta ao salvar)
 
 8. Build e Deploy
 8.1 Build Local
-npm run build
-Gera a pasta dist/ com arquivos estáticos prontos para produção.
+npm run build     # gera dist/
+npm run preview   # serve o build localmente
+Observação: Vite 8 usa minificador padrão (oxc). Não configurar `minify: 'esbuild'` — o esbuild não vem embutido no Vite 8.
 
 8.2 Deploy no GitHub Pages
 Push para o repositório GitHub

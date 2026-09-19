@@ -153,46 +153,42 @@ Para cada resultado, o usuário pode:
 
 ## 7. Roadmap de Implementação
 
-### Fase 1 — Fundação (atual)
-
+### Fase 1 — Fundação
 - [x] Setup (Node + Vite + Vitest)
 - [x] Precisão decimal (formatBRL)
-- [x] Leitura de CSV
-- [ ] Leitura de Excel (SheetJS)
-- [ ] Leitura de OFX
-- [ ] Detecção de cabeçalho
+- [x] Leitura de CSV (delimitador auto-detectado)
+- [x] Leitura de Excel (SheetJS 0.20.3 seguro via vendor)
+- [x] Leitura de OFX (colunas amigáveis)
+- [x] Detecção de cabeçalho
 
 ### Fase 2 — Mapeamento
-
-- [ ] Inferência automática de colunas
-- [ ] Interface de revisão de mapeamento
-- [ ] Persistência de mapeamento (localStorage)
+- [x] Inferência automática de colunas
+- [x] Interface de revisão de mapeamento (Data e Valor obrigatórios)
+- [ ] Persistência de mapeamento (localStorage) — adiada por decisão de escopo
 
 ### Fase 3 — Motor de Conciliação
-
-- [ ] Normalização de direção (PT/EN)
-- [ ] Scoring (valor, data, texto)
-- [ ] Matching 1:1
-- [ ] Matching 1:N (lotes)
-- [ ] Classificação de status
+- [x] Normalização de direção (PT/EN)
+- [x] Scoring (valor, data, texto)
+- [x] Matching 1:1 (com ambiguidade → POSSÍVEL)
+- [x] Matching 1:N (lotes com detecção de ambiguidade)
+- [x] Classificação de status (inclui DIVERGÊNCIA por tolerância violada)
 
 ### Fase 4 — Interface de Revisão
-
-- [ ] Painel de cartões (substitui tabela larga)
-- [ ] Ações: confirmar, rejeitar, corrigir
-- [ ] Lotes inline (expansíveis)
-- [ ] Filtros e busca
+- [x] Painel de cartões (substitui tabela larga)
+- [x] Ações: confirmar, rejeitar, corrigir
+- [x] Lotes inline (expansíveis, recolhidos por padrão)
+- [x] Filtros e busca
+- [x] Sobras do Arquivo B (recolhidas ao final da lista)
 
 ### Fase 5 — Exportação
-
-- [ ] Geração de Excel (SheetJS)
-- [ ] Todos os campos visíveis + ocultos
+- [x] Geração de Excel (SheetJS)
+- [x] Abas Conciliação + Detalhe_dos_Lotes + linhas de sobras de B
+- [x] Células tipadas (moeda com negativo vermelho, datas filtráveis)
 
 ### Fase 6 — Publicação
-
-- [ ] Build para GitHub Pages
-- [ ] Deploy automático
-- [ ] Documentação final
+- [x] Build de produção (Vite)
+- [ ] Deploy no GitHub Pages
+- [x] Documentação final
 
 ---
 
@@ -214,3 +210,11 @@ Para cada resultado, o usuário pode:
 - Projeto Streamlit (V5): `conciliador_financeiro/` (pasta irmã)
 - Validação ponta a ponta: `VALIDACAO.md` (projeto Streamlit)
 - Parecer técnico: `PARECER_TECNICO_V5-0.md` (projeto Streamlit)
+
+## 10. Decisões e desvios documentados (pós-implementação)
+1. **Exportação com 2 abas + sobras:** a SPEC original previa aba única; por pedido do dono, foram adicionadas a aba `Detalhe_dos_Lotes` (uma linha por item de lote, valor_a só na 1ª linha) e linhas extras de sobras do Arquivo B (status "NÃO ENCONTRADO (SOBRA EM B)").
+2. **Lotes sempre POSSÍVEIS:** lotes nunca nascem CONCILIADO; exigem confirmação humana (reforço da regra 4.4 e paridade com a versão Streamlit).
+3. **Ambiguidade de lote:** se 2 ou mais combinações de B somam o valor de A dentro da tolerância, o lote recebe alerta de ambiguidade e permanece para revisão.
+4. **DIVERGÊNCIA automática:** match 1:1 com valor ou data fora da tolerância é classificado como DIVERGÊNCIA (não CONCILIADO), preservando a sugestão para decisão humana.
+5. **Persistência de mapeamento (localStorage):** adiada; decisões humanas vivem apenas na sessão.
+6. **Régua conservadora do 1:1 (P1):** em análise — exigir similaridade de texto mínima para CONCILIADO, senão POSSÍVEL (paridade com Streamlit).
