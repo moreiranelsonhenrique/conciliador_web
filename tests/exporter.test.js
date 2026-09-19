@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import Decimal from 'decimal.js';
+import * as XLSX from '../js/vendor/xlsx.mjs';
 import { exportToExcel } from '../js/exporter.js';
 import { ReviewableResult } from '../js/review.js';
 
@@ -80,7 +81,7 @@ describe('exportToExcel', () => {
     const output = exportToExcel([rv]);
 
     expect(output.rows).toHaveLength(1);
-    expect(output.rows[0]['Origem Vínculo']).toBe('MANUAL');
+    expect(output.rows[0]['Origem Vínculo']).toBe('Manual');
   });
 
   it('usa fileName e sheetName customizados', () => {
@@ -175,5 +176,46 @@ describe('exportToExcel', () => {
     const output = exportToExcel(results);
     expect(output.workbook.SheetNames).not.toContain('Detalhe_dos_Lotes');
     expect(output.batchDetailRows).toEqual([]);
+  });
+    it('origem e decisão em português por padrão', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const output = exportToExcel([makeResult(a, b)]);
+    expect(output.rows[0]['Origem Vínculo']).toBe('Automático');
+    expect(output.rows[0]['Decisão Humana']).toBe('Pendente');
+  });
+
+  it('valor_a aparece apenas na primeira linha de cada lote', () => {
+    const a = makeRecord('A0', 'A', '3000.00', '2026-09-15', 'PAGTO LOTE');
+    const b1 = makeRecord('B0', 'B', '1000.00', '2026-09-15', 'ITEM 1');
+    const b2 = makeRecord('B1', 'B', '2000.00', '2026-09-15', 'ITEM 2');
+    const output = exportToExcel([makeResult(a, null, [b1, b2])]);
+    expect(output.batchDetailRows).toHaveLength(2);
+    expect(output.batchDetailRows[0]['valor_a']).toBe('3.000,00');
+    expect(output.batchDetailRows[1]['valor_a']).toBe('');
+  });
+
+  it('valores viram células numéricas com formato de moeda (negativo vermelho)', () => {
+    const a = makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO');
+    const b = makeRecord('B0', 'B', '1500.00', '2026-09-15', 'PAGTO');
+    const output = exportToExcel([makeResult(a, b)]);
+    const ws = output.workbook.Sheets['Conciliação'];
+    const headers = Object.keys(output.rows[0]);
+    const addr = XLSX.utils.encode_cell({ r: 1, c: headers.indexOf('Valor A') });
+    expect(ws[addr].t).toBe('n');
+    expect(ws[addr].v).toBe(1500);
+    expect(ws[addr].z).toContain('[Red]');
+  });
+
+  it('datas viram células de data filtráveis (serial + dd/mm/yyyy)', () => {
+    const a = makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO');
+    const b = makeRecord('B0', 'B', '1500.00', '2026-09-15', 'PAGTO');
+    const output = exportToExcel([makeResult(a, b)]);
+    const ws = output.workbook.Sheets['Conciliação'];
+    const headers = Object.keys(output.rows[0]);
+    const addr = XLSX.utils.encode_cell({ r: 1, c: headers.indexOf('Data A') });
+    expect(ws[addr].t).toBe('n');
+    expect(ws[addr].z).toBe('dd/mm/yyyy');
+    expect(ws[addr].v).toBe(46280); // serial Excel de 15/09/2026
   });
 });

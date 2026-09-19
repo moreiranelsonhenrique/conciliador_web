@@ -31,6 +31,83 @@ function formatValueBR(v) {
   });
 }
 
+// Tradução dos códigos internos para português na exportação
+const ORIGEM_PT = { AUTO: 'Automático', MANUAL: 'Manual', NONE: 'Nenhum' };
+const DECISAO_PT = { PENDING: 'Pendente', CONFIRMED: 'Confirmado', REJECTED: 'Rejeitado' };
+
+function translateOrigem(v) {
+  return ORIGEM_PT[v] || v || '';
+}
+
+function translateDecisao(v) {
+  return DECISAO_PT[v] || v || '';
+}
+
+// Formatos de célula do Excel
+const MONEY_FORMAT = 'R$ #,##0.00;[Red]-R$ #,##0.00';
+const DATE_FORMAT = 'dd/mm/yyyy';
+
+// Colunas que viram célula numérica de moeda / data
+const MONEY_COLUMNS = new Set(['Valor A', 'Valor B', 'valor_a', 'valor_b']);
+const DATE_COLUMNS = new Set(['Data A', 'Data B', 'data_b']);
+
+/**
+ * Converte string numérica BR ("1.500,00" / "-1.500,00") em número.
+ * Uso exclusivo de exibição (célula do Excel); decisões usam Decimal.
+ */
+function parseBRNumber(str) {
+  if (str == null || str === '') return null;
+  const cleaned = String(str).replace(/\./g, '').replace(',', '.');
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * Converte "dd/mm/yyyy" em serial de data do Excel (dias desde 1899-12-30),
+ * calculado via UTC para não sofrer efeito de timezone.
+ */
+function dateSerialFromBR(str) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(str || '').trim());
+  if (!m) return null;
+  const days = Math.round(Date.UTC(+m[3], +m[2] - 1, +m[1]) / 86400000);
+  return days + 25569;
+}
+
+/**
+ * Decide o tipo de célula de cada valor na planilha.
+ */
+function toCell(header, value) {
+  if (MONEY_COLUMNS.has(header)) {
+    const num = parseBRNumber(value);
+    if (num !== null) return { t: 'n', v: num, z: MONEY_FORMAT };
+    return { t: 's', v: value == null ? '' : String(value) };
+  }
+  if (DATE_COLUMNS.has(header)) {
+    const serial = dateSerialFromBR(value);
+    if (serial !== null) return { t: 'n', v: serial, z: DATE_FORMAT };
+    return { t: 's', v: value == null ? '' : String(value) };
+  }
+  if (typeof value === 'number') return { t: 'n', v: value };
+  return { t: 's', v: value == null ? '' : String(value) };
+}
+
+/**
+ * União ordenada das chaves de todas as linhas (cabecalho da planilha).
+ */
+function collectHeaders(rows) {
+  const headers = [];
+  const seen = new Set();
+  for (const row of rows) {
+    for (const key of Object.keys(row || {})) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        headers.push(key);
+      }
+    }
+  }
+  return headers;
+}
+
 /**
  * Constrói a linha de exportação para um resultado de conciliação.
  *
@@ -83,8 +160,8 @@ function buildExportRow(result, reviewable = null) {
     // Status e revisão
     'Status': result.status || '',
     'Justificativa': result.justification || '',
-    'Origem Vínculo': reviewable ? reviewable.match_origin : 'AUTO',
-    'Decisão Humana': result.human_decision || 'PENDING',
+    'Origem Vínculo': translateOrigem(reviewable ? reviewable.match_origin : 'AUTO'),
+    'Decisão Humana': translateDecisao(result.human_decision || 'PENDING'),
 
     // Vínculo original (para auditoria em caso de correção)
     'Linha B Original': reviewable && reviewable.original_b_id !== reviewable.current_b_id
@@ -121,12 +198,14 @@ function buildBatchDetailRows(results) {
     }
     const a = result.a || {};
     const loteId = `LOTE-A${a.original_row ?? ''}`;
-    for (const bi of result.batch_items) {
+    const items = result.batch_items;
+    for (let i = 0; i < items.length; i++) {
+      const bi = items[i];
       detailRows.push({
         'id_lote': loteId,
         'linha_a': a.original_row ?? '',
         'descricao_a': a.description_original || '',
-        'valor_a': formatValueBR(a.value),
+        'valor_a': i === 0 ? formatValueBR(a.value) : '',
         'linha_b': bi.original_row ?? '',
         'data_b': formatDateBR(bi.date),
         'descricao_b': bi.description_original || '',
@@ -171,20 +250,23 @@ export function exportToExcel(results, options = {}) {
       'Dir B': b.direction || '',
       'Status': 'NÃO ENCONTRADO (SOBRA EM B)',
       'Justificativa': 'Registro presente apenas no Arquivo B (sem vínculo)',
-      'Origem Vínculo': 'NONE',
+      'Origem Vínculo': 'Nenhum',
       'Decisão Humana': '',
       'Linha B Original': '',
       'Alertas': '',
     });
   }
 
-  // Cria worksheet a partir dos dados
-  const ws = XLSX.utils.json_to_sheet(rows);
-
-  // Ajusta largura das colunas
-  const colWidths = Object.keys(rows[0] || { 'Coluna': '' }).map((key) => ({
-    wch: Math.max(key.length + 2, 12),
-  }));
+  // Cria worksheet com células tipadas (moeda e data reais, não texto)
+  const headers = collectHeaders(rows);
+  const matrix = rows.length === 0
+    ? []
+    : [
+        headers.map((h) => ({ t: 's', v: h })),
+        ...rows.map((row) => headers.map((h) => toCell(h, row[h]))),
+      ];
+  const ws = XLSX.utils.aoa_to_sheet(matrix);
+  const colWidths = headers.map((key) => ({ wch: Math.max(key.length + 2, 12) }));
   ws['!cols'] = colWidths;
 
   // Cria workbook
@@ -194,10 +276,13 @@ export function exportToExcel(results, options = {}) {
     // Microentrega B: aba Detalhe_dos_Lotes (uma linha por item de lote)
   const batchDetailRows = buildBatchDetailRows(results);
   if (batchDetailRows.length > 0) {
-    const wsLotes = XLSX.utils.json_to_sheet(batchDetailRows);
-    const loteColWidths = Object.keys(batchDetailRows[0]).map((key) => ({
-      wch: Math.max(key.length + 2, 12),
-    }));
+    const loteHeaders = collectHeaders(batchDetailRows);
+    const loteMatrix = [
+      loteHeaders.map((h) => ({ t: 's', v: h })),
+      ...batchDetailRows.map((row) => loteHeaders.map((h) => toCell(h, row[h]))),
+    ];
+    const wsLotes = XLSX.utils.aoa_to_sheet(loteMatrix);
+    const loteColWidths = loteHeaders.map((key) => ({ wch: Math.max(key.length + 2, 12) }));
     wsLotes['!cols'] = loteColWidths;
     XLSX.utils.book_append_sheet(wb, wsLotes, 'Detalhe_dos_Lotes');
   }
