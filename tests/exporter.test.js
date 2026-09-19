@@ -106,4 +106,50 @@ describe('exportToExcel', () => {
     const output = exportToExcel([]);
     expect(output.rows).toEqual([]);
   });
+
+  it('inclui sobras do Arquivo B como linhas extras', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b0 = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const b1 = makeRecord('B1', 'B', '200.00', '2026-09-16', 'SOBRA');
+    const results = [makeResult(a, b0)];
+    const output = exportToExcel(results, { unmatchedB: results, recordsB: [b0, b1] });
+    expect(output.rows).toHaveLength(2);
+    const sobra = output.rows[1];
+    expect(sobra['Status']).toBe('NÃO ENCONTRADO (SOBRA EM B)');
+    expect(sobra['Linha A']).toBe('');
+    expect(sobra['Descrição B']).toBe('SOBRA');
+  });
+
+  it('não inclui sobra quando todos os B estão vinculados', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b0 = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const results = [makeResult(a, b0)];
+    const output = exportToExcel(results, { unmatchedB: results, recordsB: [b0] });
+    expect(output.rows).toHaveLength(1);
+  });
+
+  it('sobra reflete vínculo manual: B antigo vira sobra, B novo é ocupado', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b0 = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const b1 = makeRecord('B1', 'B', '100.00', '2026-09-15', 'Y');
+    const rv = new ReviewableResult(makeResult(a, b0));
+    rv.current_b_id = 'B1'; // simula correção manual: A0 agora aponta para B1
+    const output = exportToExcel([rv], { unmatchedB: [rv], recordsB: [b0, b1] });
+    // Esperado: 1 linha do A + 1 linha de sobra (B0, que foi liberado)
+    expect(output.rows).toHaveLength(2);
+    const sobra = output.rows[1];
+    expect(sobra['Status']).toBe('NÃO ENCONTRADO (SOBRA EM B)');
+    expect(sobra['Descrição B']).toBe('X'); // B0 tem desc "X"
+  });
+
+  it('quando todos os B estão ocupados, não há linha de sobra', () => {
+    const a1 = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X1');
+    const a2 = makeRecord('A1', 'A', '100.00', '2026-09-15', 'X2');
+    const b0 = makeRecord('B0', 'B', '100.00', '2026-09-15', 'B0');
+    const b1 = makeRecord('B1', 'B', '100.00', '2026-09-15', 'B1');
+    const rv1 = new ReviewableResult(makeResult(a1, b0));
+    const rv2 = new ReviewableResult(makeResult(a2, b1));
+    const output = exportToExcel([rv1, rv2], { unmatchedB: [rv1, rv2], recordsB: [b0, b1] });
+    expect(output.rows).toHaveLength(2); // apenas as 2 linhas de A
+  });
 });
