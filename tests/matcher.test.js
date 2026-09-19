@@ -166,4 +166,30 @@ describe('findBatchMatches', () => {
     expect(findBatchMatches(null, [])).toEqual([]);
     expect(findBatchMatches([], null)).toEqual([]);
   });
+    it('detecta ambiguidade quando duas combinações somam o mesmo valor', () => {
+    const a = [makeRecord('A0', '5000', '2026-09-15', 'PAGTO LOTE')];
+    const b = [
+      makeRecord('B0', '3000', '2026-09-15', 'OPCAO A1'),
+      makeRecord('B1', '2000', '2026-09-15', 'OPCAO A2'),
+      makeRecord('B2', '3500', '2026-09-15', 'OPCAO B1'),
+      makeRecord('B3', '1500', '2026-09-15', 'OPCAO B2'),
+    ];
+    const matches = findBatchMatches(a, b);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].ambiguous).toBe(true);
+    expect(matches[0].alternative_count).toBe(2);
+  });
+
+  it('marca ambiguous=false quando há combinação única', () => {
+    const a = [makeRecord('A0', '3000', '2026-09-15', 'PAGTO LOTE')];
+    const b = [
+      makeRecord('B0', '1000', '2026-09-15', 'ITEM 1'),
+      makeRecord('B1', '1500', '2026-09-15', 'ITEM 2'),
+      makeRecord('B2', '500', '2026-09-15', 'ITEM 3'),
+    ];
+    const matches = findBatchMatches(a, b);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].ambiguous).toBe(false);
+    expect(matches[0].alternative_count).toBe(1);
+  });
 });

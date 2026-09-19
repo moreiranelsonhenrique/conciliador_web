@@ -180,6 +180,17 @@ describe('classifyBatchMatch', () => {
     const result = classifyBatchMatch(batchMatch, {}, recordsB);
     expect(result.status).toBe('NÃO ENCONTRADO');
   });
+    it('adiciona alerta de ambiguidade quando lote tem múltiplas combinações', () => {
+    const batchMatch = { a_id: 'A0', b_ids: ['B0', 'B1'], ambiguous: true, alternative_count: 2 };
+    const recordA = { id: 'A0', value: new Decimal('5000') };
+    const recordsB = [
+      { id: 'B0', value: new Decimal('3000') },
+      { id: 'B1', value: new Decimal('2000') },
+    ];
+    const result = classifyBatchMatch(batchMatch, recordA, recordsB);
+    expect(result.status).toBe('POSSÍVEL CORRESPONDÊNCIA');
+    expect(result.alerts.some((a) => a.includes('Ambiguidade'))).toBe(true);
+  });
 });
 
 describe('classifyNotFound', () => {

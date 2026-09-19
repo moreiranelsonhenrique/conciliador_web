@@ -185,19 +185,20 @@ export function findBatchMatches(recordsA, recordsB, config = {}) {
 
     if (bCandidates.length === 0) continue;
 
-    // Busca combinações que somam ao valor de A
+    // Busca até 2 combinações que somam ao valor de A (para detectar ambiguidade)
     const batchSize = Math.min(maxBatchSize, bCandidates.length);
-    const found = findCombination(bCandidates, targetValue, valueTolerance, batchSize);
-
-    if (found) {
+    const combos = findAllCombinations(bCandidates, targetValue, valueTolerance, batchSize, 2);
+    if (combos.length > 0) {
+      const found = combos[0];
       const bIds = found.map((b) => b.id);
       bIds.forEach((id) => usedB.add(id));
-
       matches.push({
         a_id: a.id,
         b_ids: bIds,
         status: 'CONCILIADO',
         justification: `Lote com ${bIds.length} itens somando ${targetValue.toFixed(2)}`,
+        ambiguous: combos.length > 1,
+        alternative_count: combos.length,
       });
     }
   }
@@ -215,30 +216,39 @@ export function findBatchMatches(recordsA, recordsB, config = {}) {
  * @param {number} maxItems  Máximo de itens na combinação
  * @returns {Array<Object>|null}  Combinação encontrada ou null
  */
-function findCombination(items, target, tolerance, maxItems) {
-  // Tenta combinações de tamanho 2 até maxItems
-  for (let size = 2; size <= maxItems; size++) {
-    const result = findCombinationOfSize(items, target, tolerance, size, 0, []);
-    if (result) return result;
+/**
+ * Busca até `limit` combinações distintas de itens que somam ao valor alvo.
+ * A busca é limitada por combinação (maxItems) e por quantidade (limit),
+ * evitando explosão combinatória. A ordem de retorno é determinística:
+ * combinações menores primeiro, em ordem de índice.
+ *
+ * @param {Array<Object>} items  Itens disponíveis
+ * @param {Decimal} target  Valor alvo
+ * @param {Decimal} tolerance  Tolerância
+ * @param {number} maxItems  Máximo de itens por combinação
+ * @param {number} limit  Máximo de combinações a retornar
+ * @returns {Array<Array<Object>>}  Combinações encontradas (até `limit`)
+ */
+function findAllCombinations(items, target, tolerance, maxItems, limit) {
+  const found = [];
+  for (let size = 2; size <= maxItems && found.length < limit; size++) {
+    collectCombinationsOfSize(items, target, tolerance, size, 0, [], found, limit);
   }
-  return null;
+  return found;
 }
 
-function findCombinationOfSize(items, target, tolerance, size, startIdx, current) {
+function collectCombinationsOfSize(items, target, tolerance, size, startIdx, current, found, limit) {
+  if (found.length >= limit) return;
   if (current.length === size) {
     const sum = current.reduce((acc, item) => acc.plus(item.value.abs()), new Decimal(0));
     if (sum.minus(target).abs().lte(tolerance)) {
-      return current;
+      found.push([...current]);
     }
-    return null;
+    return;
   }
-
-  for (let i = startIdx; i < items.length; i++) {
+  for (let i = startIdx; i < items.length && found.length < limit; i++) {
     current.push(items[i]);
-    const result = findCombinationOfSize(items, target, tolerance, size, i + 1, current);
-    if (result) return result;
+    collectCombinationsOfSize(items, target, tolerance, size, i + 1, current, found, limit);
     current.pop();
   }
-
-  return null;
 }

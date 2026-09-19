@@ -177,4 +177,19 @@ describe('reconcile', () => {
     expect(results[0].status).toBe('DIVERGÊNCIA');
     expect(results[0].alerts.join(' ')).toContain('Valor fora da tolerância');
   });
+  
+  it('lote ambíguo recebe alerta de ambiguidade (cenário de estresse 15/09)', () => {
+    const a = [makeRecord('A0', 'A', '5000.00', '2026-09-15', 'PAGTO LOTE SERVICOS PRESTADOS')];
+    const b = [
+      makeRecord('B0', 'B', '3000.00', '2026-09-15', 'CONSULTORIA PROJETO A'),
+      makeRecord('B1', 'B', '2000.00', '2026-09-15', 'SUPORTE PROJETO A'),
+      makeRecord('B2', 'B', '3500.00', '2026-09-15', 'SERVICOS DE MARKETING B'),
+      makeRecord('B3', 'B', '1500.00', '2026-09-15', 'IMPULSIONAMENTO B'),
+    ];
+    const results = reconcile(a, b);
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe('POSSÍVEL CORRESPONDÊNCIA');
+    expect(results[0].alerts.some((al) => al.includes('Ambiguidade'))).toBe(true);
+  });
+
 });

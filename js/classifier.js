@@ -140,10 +140,16 @@ export function classifyBatchMatch(batchMatch, recordA, recordsB) {
     };
   }
 
+  const alerts = ['Lote detectado: confirmação humana obrigatória'];
+  if (batchMatch.ambiguous) {
+    alerts.push(
+      `Ambiguidade: ${batchMatch.alternative_count || 2} combinações de itens somam o mesmo valor — revise a composição exibida.`
+    );
+  }
   return {
     status: 'POSSÍVEL CORRESPONDÊNCIA',
     justification: `Lote com ${batchItems.length} itens — revisão humana obrigatória`,
-    alerts: ['Lote detectado: confirmação humana obrigatória'],
+    alerts,
     batch_items: batchItems,
   };
 }
