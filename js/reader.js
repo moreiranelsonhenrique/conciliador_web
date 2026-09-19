@@ -15,13 +15,15 @@ export function parseCSVString(csvText, options = {}) {
     throw new TypeError('parseCSVString espera uma string como primeiro argumento.');
   }
 
-  const result = Papa.parse(csvText, {
+  const config = {
     header: true,
     skipEmptyLines: true,
-    delimiter: options.delimiter || ',',
     dynamicTyping: false,
     transformHeader: (h) => h.trim(),
-  });
+  };
+  // Sem delimitador explícito, o PapaParse auto-detecta (vírgula, ponto-e-vírgula, tab)
+  if (options.delimiter) config.delimiter = options.delimiter;
+  const result = Papa.parse(csvText, config);
 
   if (result.errors && result.errors.length > 0) {
     console.warn('Avisos do PapaParse:', result.errors);
@@ -44,12 +46,14 @@ export function parseCSVRows(csvText, options = {}) {
     throw new TypeError('parseCSVRows espera uma string como primeiro argumento.');
   }
 
-  const result = Papa.parse(csvText, {
+  const config = {
     header: false,
     skipEmptyLines: true,
-    delimiter: options.delimiter || ',',
     dynamicTyping: false,
-  });
+  };
+  // Sem delimitador explícito, o PapaParse auto-detecta (vírgula, ponto-e-vírgula, tab)
+  if (options.delimiter) config.delimiter = options.delimiter;
+  const result = Papa.parse(csvText, config);
 
   return result.data;
 }

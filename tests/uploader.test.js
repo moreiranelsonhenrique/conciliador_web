@@ -116,4 +116,13 @@ describe('readFile', () => {
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].Data).toBe('15/09/2026');
   });
+    it('detecta colunas em CSV separado por ponto-e-vírgula (caso real)', async () => {
+    const csvContent =
+      'Data;Descricao;Valor\n15/09/2026;PAGTO FORNECEDOR;1500,00\n16/09/2026;RECEBIMENTO;2000,00';
+    const mockFile = new File([csvContent], 'extrato.csv', { type: 'text/csv' });
+    const result = await readFile(mockFile);
+    expect(result.columns).toEqual(['Data', 'Descricao', 'Valor']);
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].Valor).toBe('1500,00');
+  });
 });

@@ -149,4 +149,25 @@ describe('parseExcelRows', () => {
   it('lança erro se buffer for nulo', () => {
     expect(() => parseExcelRows(null)).toThrow(TypeError);
   });
+
+describe('auto-detecção de delimitador', () => {
+  it('parseCSVString auto-detecta ponto-e-vírgula', () => {
+    const csv = `Data;Descricao;Valor\n15/09/2026;PAGTO FORNECEDOR;1500,00`;
+    const rows = parseCSVString(csv);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      Data: '15/09/2026',
+      Descricao: 'PAGTO FORNECEDOR',
+      Valor: '1500,00',
+    });
+  });
+
+  it('parseCSVRows auto-detecta ponto-e-vírgula', () => {
+    const csv = `Data;Descricao;Valor\n15/09/2026;PAGTO FORNECEDOR;1500,00`;
+    const rows = parseCSVRows(csv);
+    expect(rows[0]).toEqual(['Data', 'Descricao', 'Valor']);
+    expect(rows[1]).toEqual(['15/09/2026', 'PAGTO FORNECEDOR', '1500,00']);
+  });
+});
+  
 });
