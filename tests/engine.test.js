@@ -139,4 +139,33 @@ describe('reconcile', () => {
     const nfIdx = statuses.indexOf('NÃO ENCONTRADO');
     expect(nfIdx).toBe(statuses.length - 1);
   });
+
+  it('repassa minTextSimilarity para o scoring de texto', () => {
+    // Jaccard entre 'PAGTO FORNECEDOR' e 'PAGTO FORNECEDOR SILVA' = 2/3 ≈ 0.667
+    const a = [makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO FORNECEDOR')];
+    const b = [makeRecord('B0', 'B', '1500.00', '2026-09-15', 'PAGTO FORNECEDOR SILVA')];
+
+    const comPadrao = reconcile(a, b);
+    const comAlta = reconcile(a, b, { minTextSimilarity: 0.9 });
+
+    expect(comPadrao[0].score_details.text).toBeGreaterThan(0);
+    expect(comAlta[0].score_details.text).toBe(0);
+  });
+
+  it('cenário V5: data fora da tolerância vira DIVERGÊNCIA', () => {
+    const a = [makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO FORNECEDOR')];
+    const b = [makeRecord('B0', 'B', '1500.00', '2026-09-20', 'PAGTO FORNECEDOR')];
+    const results = reconcile(a, b); // tolerância padrão: 2 dias
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe('DIVERGÊNCIA');
+    expect(results[0].alerts.join(' ')).toContain('Data fora da tolerância');
+  });
+
+  it('cenário V5: com tolerância de 5 dias vira CONCILIADO', () => {
+    const a = [makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO FORNECEDOR')];
+    const b = [makeRecord('B0', 'B', '1500.00', '2026-09-20', 'PAGTO FORNECEDOR')];
+    const results = reconcile(a, b, { dateToleranceDays: 5 });
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe('CONCILIADO');
+  });
 });

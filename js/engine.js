@@ -37,6 +37,7 @@ export function reconcile(recordsA, recordsB, config = {}) {
   const cfg = {
     valueTolerance: config.valueTolerance ?? '0.01',
     dateToleranceDays: config.dateToleranceDays ?? 2,
+    minTextSimilarity: config.minTextSimilarity ?? 0.6,
     minScore: config.minScore ?? 50,
     ambiguityThreshold: config.ambiguityThreshold ?? 5,
     maxBatchSize: config.maxBatchSize ?? 5,
@@ -72,7 +73,7 @@ export function reconcile(recordsA, recordsB, config = {}) {
     const a = aById.get(m.a_id);
     const b = bById.get(m.b_id);
     const aCandidates = candidates.filter((c) => c.a_id === m.a_id);
-    const classification = classifyMatch1to1(m, aCandidates, cfg);
+    const classification = classifyMatch1to1(m, aCandidates, cfg, a, b);
 
     results.push({
       a,
