@@ -12,10 +12,10 @@ import Decimal from 'decimal.js';
  * @param {Object} match  { a_id, b_id, score, score_details }
  * @param {Array<Object>} allCandidates  Todos os candidatos para este a_id
  * @param {Object} [config]
- * @param {number} [config.minScore=50]  Score mínimo para considerar match
- * @param {number} [config.ambiguityThreshold=5]  Diferença mínima entre 1º e 2º
- * @param {number} [config.dateToleranceDays=2]  Tolerância de data em dias
- * @param {string|number} [config.valueTolerance='0.01']  Tolerância de valor (R$)
+ * @param {number} [config.minScore=50]
+ * @param {number} [config.ambiguityThreshold=5]
+ * @param {number} [config.dateToleranceDays=2]
+ * @param {string|number} [config.valueTolerance='0.01']
  * @param {Object|null} [recordA]  Registro A completo (para checar tolerâncias)
  * @param {Object|null} [recordB]  Registro B completo (para checar tolerâncias)
  * @returns {Object}  { status, justification, alerts }
@@ -120,7 +120,7 @@ export function classifyMatch1to1(match, allCandidates, config = {}, recordA = n
  * @param {Object} batchMatch  { a_id, b_ids }
  * @param {Object} recordA  Registro A completo
  * @param {Array<Object>} recordsB  Registros B completos
- * @returns {Object}  { status, justification, alerts }
+ * @returns {Object}  { status, justification, alerts, batch_items }
  */
 export function classifyBatchMatch(batchMatch, recordA, recordsB) {
   if (!batchMatch || !batchMatch.b_ids || batchMatch.b_ids.length === 0) {

@@ -1,4 +1,5 @@
 import * as XLSX from './vendor/xlsx.mjs';
+import { findUnmatchedB, formatDateBR as formatDateBRUi, formatMoneyOrInvalid } from './resultsUi.js';
 
 /**
  * Formata uma data Date para string dd/mm/yyyy.
@@ -107,7 +108,6 @@ function buildExportRow(result, reviewable = null) {
 export function exportToExcel(results, options = {}) {
   const fileName = options.fileName || 'conciliacao_resultado';
   const sheetName = options.sheetName || 'Conciliação';
-
   if (!Array.isArray(results)) {
     throw new TypeError('exportToExcel espera um array de resultados');
   }
@@ -121,6 +121,30 @@ export function exportToExcel(results, options = {}) {
     // É um resultado puro
     return buildExportRow(item, null);
   });
+
+  // --- Microentrega 25: sobras do Arquivo B (registros B sem vínculo atual) ---
+  const unmatchedSource = Array.isArray(options.unmatchedB) ? options.unmatchedB : results;
+  const unmatched = findUnmatchedB(unmatchedSource, options.recordsB || []);
+  for (const b of unmatched) {
+    rows.push({
+      'Linha A': '',
+      'Data A': '',
+      'Descrição A': '',
+      'Valor A': '',
+      'Dir A': '',
+      'Linha B': b.original_row != null ? b.original_row : '',
+      'Data B': formatDateBRUi(b.date),
+      'Descrição B': b.description_original || '',
+      'Valor B': b.value != null ? formatMoneyOrInvalid(b.value) : '',
+      'Dir B': b.direction || '',
+      'Status': 'NÃO ENCONTRADO (SOBRA EM B)',
+      'Justificativa': 'Registro presente apenas no Arquivo B (sem vínculo)',
+      'Origem Vínculo': 'NONE',
+      'Decisão Humana': '',
+      'Linha B Original': '',
+      'Alertas': '',
+    });
+  }
 
   // Cria worksheet a partir dos dados
   const ws = XLSX.utils.json_to_sheet(rows);

@@ -168,4 +168,13 @@ describe('reconcile', () => {
     expect(results).toHaveLength(1);
     expect(results[0].status).toBe('CONCILIADO');
   });
+
+  it('valor fora da tolerância vira DIVERGÊNCIA', () => {
+    const a = [makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO FORNECEDOR')];
+    const b = [makeRecord('B0', 'B', '1500.50', '2026-09-15', 'PAGTO FORNECEDOR')];
+    const results = reconcile(a, b, { valueTolerance: '0.01', dateToleranceDays: 2 });
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe('DIVERGÊNCIA');
+    expect(results[0].alerts.join(' ')).toContain('Valor fora da tolerância');
+  });
 });

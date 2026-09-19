@@ -81,6 +81,50 @@ describe('classifyMatch1to1', () => {
     expect(result.status).toBe('CONCILIADO');
   });
 
+  it('classifica como DIVERGÊNCIA quando data está fora da tolerância', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 80 };
+    const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO FORNECEDOR' };
+    const b = { id: 'B0', value: new Decimal('1500.00'), date: new Date('2026-09-20'), description_original: 'PAGTO FORNECEDOR' };
+    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 2 }, a, b);
+    expect(result.status).toBe('DIVERGÊNCIA');
+    expect(result.justification).toContain('Data fora da tolerância');
+    expect(result.alerts).toHaveLength(1);
+  });
+
+  it('classifica como CONCILIADO quando data está dentro da tolerância', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 100 };
+    const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
+    const b = { id: 'B0', value: new Decimal('1500.00'), date: new Date('2026-09-17'), description_original: 'PAGTO' };
+    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 2 }, a, b);
+    expect(result.status).toBe('CONCILIADO');
+  });
+
+  it('classifica como DIVERGÊNCIA quando valor está fora da tolerância', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 70 };
+    const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
+    const b = { id: 'B0', value: new Decimal('1500.50'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
+    const result = classifyMatch1to1(match, [match], { valueTolerance: '0.01', dateToleranceDays: 2 }, a, b);
+    expect(result.status).toBe('DIVERGÊNCIA');
+    expect(result.justification).toContain('Valor fora da tolerância');
+  });
+
+  it('valor e data fora da tolerância geram dois alertas', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 60 };
+    const a = { id: 'A0', value: new Decimal('100.00'), date: new Date('2026-09-10'), description_original: 'X' };
+    const b = { id: 'B0', value: new Decimal('120.00'), date: new Date('2026-09-20'), description_original: 'X' };
+    const result = classifyMatch1to1(match, [match], { valueTolerance: '0.01', dateToleranceDays: 2 }, a, b);
+    expect(result.status).toBe('DIVERGÊNCIA');
+    expect(result.alerts).toHaveLength(2);
+  });
+
+  it('data ausente não gera divergência de data', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 80 };
+    const a = { id: 'A0', value: new Decimal('100.00'), date: null, description_original: 'X' };
+    const b = { id: 'B0', value: new Decimal('100.00'), date: new Date('2026-09-25'), description_original: 'X' };
+    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 0 }, a, b);
+    expect(result.status).toBe('CONCILIADO');
+  });
+
   it('ambiguidade tem prioridade sobre divergência', () => {
     const match = { a_id: 'A0', b_id: 'B0', score: 80 };
     const rival = { a_id: 'A0', b_id: 'B1', score: 79 };

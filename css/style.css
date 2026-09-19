@@ -363,6 +363,53 @@ body {
     opacity: 0.8;
 }
 
+/* ===== Ações de revisão V6 ===== */
+.btn-action {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-action:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+.btn-action.btn-confirm { background: #c6f6d5; color: #22543d; }
+.btn-action.btn-reject  { background: #fed7d7; color: #742a2a; }
+.btn-action.btn-correct { background: #bee3f8; color: #2a4365; }
+.btn-action.btn-undo    { background: #e9d8fd; color: #44337a; }
+.btn-action.btn-apply   { background: #c6f6d5; color: #22543d; }
+.btn-action.btn-cancel  { background: #e2e8f0; color: #4a5568; }
+
+.correct-form {
+  width: 100%;
+  padding: 0.75rem;
+  background: #f7fafc;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.correct-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+.correct-form select {
+  padding: 0.5rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.correct-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .btn-confirm {
     background: #c6f6d5;
     color: #22543d;
@@ -397,6 +444,37 @@ body {
     padding: 0.4rem;
     text-align: left;
     border-bottom: 1px solid #e2e8f0;
+}
+
+/* ===== Sobras do Arquivo B ===== */
+.unmatched-b {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #fffaf0;
+    border: 1px solid #f6ad55;
+    border-radius: 8px;
+}
+.unmatched-b h3 {
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: #7b341e;
+}
+.unmatched-b table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+}
+.unmatched-b th,
+.unmatched-b td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #fbd38d;
+}
+.unmatched-b th {
+    background: #feebc8;
+    color: #7b341e;
+    font-weight: 600;
 }
 
 /* ===== Mensagens ===== */
