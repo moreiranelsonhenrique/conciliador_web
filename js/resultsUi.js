@@ -399,7 +399,11 @@ function extractResult(item) {
  * @returns {Array<Object>}  Registros B não vinculados
  */
 export function findUnmatchedB(results, recordsB) {
-  const list = Array.isArray(results) ? results : [];
+  // Se results não é array válido, não há como determinar sobras
+  if (!Array.isArray(results)) {
+    return [];
+  }
+  const list = results;
   const recs = Array.isArray(recordsB) ? recordsB : [];
   const used = new Set();
   for (const item of list) {
