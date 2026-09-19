@@ -320,7 +320,6 @@ export function renderResultCard(rv, registry) {
   // Cabeçalho: status + situação unificada
   html += '<div class="result-header">';
   html += `<span class="result-status ${slug}">${STATUS_LABELS[result.status] || result.status}</span>`;
-  html += `<span class="result-situacao">${situationLabel(rv)}</span>`;
   html += '</div>';
 
   // Linha-resumo do registro A
@@ -331,7 +330,7 @@ export function renderResultCard(rv, registry) {
     `${formatMoneyOrInvalid(a.value)} · ${a.direction}</p>`;
 
   // Detalhes expansíveis (lotes já vêm abertos)
-  html += `<details${rv.is_batch ? ' open' : ''}><summary>Detalhes e vínculo</summary>`;
+  html += `<details><summary>Detalhes e vínculo</summary>`;
   html += renderRecordBlock('Registro A (Banco/Extrato)', a);
 
   // Vínculo atual
@@ -439,8 +438,8 @@ export function findUnmatchedB(results, recordsB) {
 export function renderUnmatchedBTable(unmatchedB) {
   const list = Array.isArray(unmatchedB) ? unmatchedB : [];
   if (list.length === 0) return '';
-  let html = `<div class="unmatched-b">`;
-  html += `<h3>📄 Registros B sem correspondente no Arquivo A (${list.length})</h3>`;
+  let html = `<details class="unmatched-b">`;
+  html += `<summary>📄 Registros B sem correspondente no Arquivo A (${list.length}) — clique para expandir</summary>`;
   html += '<p class="hint">Estes registros existem no Financeiro mas não foram vinculados a nenhum lançamento do extrato. Verifique se falta algo no Arquivo A.</p>';
   html += '<table><thead><tr><th>Linha B</th><th>Data</th><th>Descrição</th><th>Valor</th><th>Dir</th></tr></thead><tbody>';
   for (const b of list) {
@@ -451,6 +450,6 @@ export function renderUnmatchedBTable(unmatchedB) {
       `<td>${formatMoneyOrInvalid(b.value)}</td>` +
       `<td>${b.direction || ''}</td></tr>`;
   }
-  html += '</tbody></table></div>';
+  html += '</tbody></table></details>';
   return html;
 }

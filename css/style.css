@@ -477,6 +477,19 @@ body {
     font-weight: 600;
 }
 
+.unmatched-b summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #7b341e;
+    padding: 0.25rem 0;
+}
+.unmatched-b summary:hover {
+    text-decoration: underline;
+}
+.unmatched-b[open] summary {
+    margin-bottom: 0.5rem;
+}
+
 /* ===== Mensagens ===== */
 .mensagem {
     padding: 1rem;
@@ -507,21 +520,30 @@ body {
     color: #718096;
     font-size: 0.9rem;
 }
-
 .footer-links {
-    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 0.75rem;
 }
-
 .footer-links a {
-    margin: 0 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     color: #667eea;
     text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
 }
-
 .footer-links a:hover {
-    text-decoration: underline;
+    color: #764ba2;
 }
-
+.footer-links svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
 .footer-author {
     font-size: 0.85rem;
 }
