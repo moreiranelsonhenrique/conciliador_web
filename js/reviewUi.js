@@ -165,7 +165,7 @@ export function renderCorrectForm(rv, availableBs, filterTerm = '') {
     `<div class="correct-form" data-a-id="${aId}">` +
     `<label>Selecione o registro B para vincular:</label>` +
     `<input type="search" data-role="correct-search" placeholder="Buscar por linha, data, descrição ou valor..." value="${escapeHtml(term)}">` +
-    `<select data-role="correct-b">${options}</select>` +
+    `<select data-role="correct-b" size="8">${options}</select>` +
     `<p class="hint">${list.length} de ${all.length} registro(s) disponível(is).</p>` +
     `<div class="correct-form-actions">` +
     `<button class="btn-action btn-apply" data-action="apply-correct" data-a-id="${aId}">Aplicar</button>` +

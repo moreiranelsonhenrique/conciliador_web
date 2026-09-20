@@ -261,5 +261,11 @@ describe('renderCorrectForm com busca', () => {
     expect(html).toContain('0 de 2 registro(s) disponível(is)');
     expect(html).toContain('(selecione um registro B)');
   });
+
+  it('M37B: select é lista visível (size) — opções filtradas aparecem sem expandir', () => {
+    const { rv, bAvail } = makeFormFixture();
+    const html = renderCorrectForm(rv, bAvail, 'silva');
+    expect(html).toContain('size="8"');
+  });
 });
 });

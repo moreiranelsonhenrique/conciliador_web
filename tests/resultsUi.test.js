@@ -201,6 +201,14 @@ describe('renderFiltersBar', () => {
     expect(html).toContain('id="filtro-revisao"');
     expect(html).toContain('id="filtro-busca"');
   });
+
+  it('M40: barra contém filtros de período e faixa de valor', () => {
+    const html = renderFiltersBar();
+    expect(html).toContain('id="filtro-data-de"');
+    expect(html).toContain('id="filtro-data-ate"');
+    expect(html).toContain('id="filtro-valor-min"');
+    expect(html).toContain('id="filtro-valor-max"');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -443,6 +451,83 @@ describe('renderUnmatchedBTable', () => {
     expect(html).toContain('<details class="unmatched-b">');
     expect(html).toContain('clique para expandir');
     expect(html).not.toContain('open>');
+  });
+});
+// ---------------------------------------------------------------------------
+// applyFilters — filtros avançados (Microentrega 40)
+// ---------------------------------------------------------------------------
+describe('applyFilters — filtros avançados (M40)', () => {
+  const makeAdvFixtures = () => {
+    const a1 = makeRecord('A0', 'A', '100.00', '2026-09-10', 'PAGTO FORNECEDOR');
+    const b1 = makeRecord('B0', 'B', '100.00', '2026-09-10', 'FORNECEDOR SILVA');
+    const a2 = makeRecord('A1', 'A', '250.00', '2026-09-15', 'RECEBIMENTO PIX', 'ENTRADA');
+    const b2 = makeRecord('B1', 'B', '250.00', '2026-09-15', 'PIX CLIENTE', 'ENTRADA');
+    const a3 = makeRecord('A2', 'A', '3000.00', '2026-09-20', 'ALUGUEL');
+    const rvs = [
+      new ReviewableResult(makeResult(a1, b1)),
+      new ReviewableResult(makeResult(a2, b2)),
+      new ReviewableResult(makeResult(a3, null, null, 'NÃO ENCONTRADO')),
+    ];
+    const registry = new BRegistry([b1, b2]);
+    return { rvs, registry };
+  };
+
+  it('filtra por período de/até (inclusivo)', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { dateFrom: '2026-09-10', dateTo: '2026-09-15' });
+    expect(list).toHaveLength(2);
+    expect(list.map((r) => r.a_id)).toEqual(['A0', 'A1']);
+  });
+
+  it('período só com "de" filtra a partir da data', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { dateFrom: '2026-09-15' });
+    expect(list).toHaveLength(2); // A1 (15/09) e A2 (20/09)
+  });
+
+  it('período só com "até" filtra até a data', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { dateTo: '2026-09-15' });
+    expect(list).toHaveLength(2); // A0 (10/09) e A1 (15/09)
+  });
+
+  it('registros sem data ficam de fora quando há filtro de período', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    rvs[2].result.a.date = null;
+    const list = applyFilters(rvs, registry, { dateFrom: '2026-01-01', dateTo: '2026-12-31' });
+    expect(list).toHaveLength(2);
+  });
+
+  it('filtra por valor mínimo (valor absoluto)', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { valueMin: '200' });
+    expect(list).toHaveLength(2); // 250 e 3000
+  });
+
+  it('filtra por valor máximo', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { valueMax: '300' });
+    expect(list).toHaveLength(2); // 100 e 250
+  });
+
+  it('valor e período combinados', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { dateFrom: '2026-09-14', valueMin: '1000' });
+    expect(list).toHaveLength(1);
+    expect(list[0].a_id).toBe('A2');
+  });
+
+  it('valores de filtro inválidos são ignorados (não quebram)', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    const list = applyFilters(rvs, registry, { valueMin: 'abc', valueMax: 'xyz', dateFrom: 'data-ruim' });
+    expect(list).toHaveLength(3);
+  });
+
+  it('registros com valor inválido ficam de fora quando há filtro de valor', () => {
+    const { rvs, registry } = makeAdvFixtures();
+    rvs[0].result.a.value = null;
+    const list = applyFilters(rvs, registry, { valueMin: '1' });
+    expect(list).toHaveLength(2);
   });
 });
 });

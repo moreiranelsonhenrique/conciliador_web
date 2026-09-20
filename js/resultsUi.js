@@ -200,14 +200,56 @@ export function renderFiltersBar() {
     '<option value="CONFIRMED">Confirmados</option>' +
     '<option value="REJECTED">Rejeitados</option>' +
     '</select></label>' +
+    '<label>De ' +
+    '<input type="date" id="filtro-data-de"></label>' +
+    '<label>Até ' +
+    '<input type="date" id="filtro-data-ate"></label>' +
+    '<label>Valor mín (R$) ' +
+    '<input type="number" id="filtro-valor-min" step="0.01" min="0" placeholder="0,00"></label>' +
+    '<label>Valor máx (R$) ' +
+    '<input type="number" id="filtro-valor-max" step="0.01" min="0" placeholder="sem limite"></label>' +
     '<input type="search" id="filtro-busca" placeholder="Buscar descrição...">' +
     '<span id="filtro-contagem" class="hint"></span>'
   );
 }
 
 /**
- * Aplica filtros (status, revisão, busca textual) sobre os resultados.
- * A busca procura na descrição do A e na descrição do vínculo atual (via registry).
+ * Interpreta data de filtro (input type="date" → 'YYYY-MM-DD') como
+ * Date em midnight UTC. Retorna null para valor vazio/inválido.
+ * @param {*} value
+ * @returns {Date|null}
+ */
+function parseFilterDate(value) {
+  if (!value) return null;
+  const d = new Date(String(value));
+  if (!(d instanceof Date) || isNaN(d.getTime())) return null;
+  return d;
+}
+
+/**
+ * Interpreta valor de filtro como Decimal finito.
+ * Retorna null para valor vazio/inválido (o filtro é ignorado).
+ * @param {*} value
+ * @returns {Decimal|null}
+ */
+function parseFilterDecimal(value) {
+  if (value == null || value === '') return null;
+  try {
+    const d = new Decimal(String(value).replace(',', '.'));
+    return d.isFinite() ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Aplica filtros (status, revisão, busca textual, período e faixa de valor)
+ * sobre os resultados.
+ * - A busca procura na descrição do A e na descrição do vínculo atual (via registry).
+ * - Período (dateFrom/dateTo) filtra pela DATA do registro A, inclusivo;
+ *   registro sem data fica de fora quando o filtro está ativo.
+ * - Faixa de valor (valueMin/valueMax) compara com o VALOR ABSOLUTO do registro A;
+ *   valores de filtro inválidos são ignorados.
  *
  * @param {Array<Object>} reviewables  ReviewableResult[]
  * @param {Object} registry  BRegistry
@@ -242,6 +284,38 @@ export function applyFilters(reviewables, registry, filters = {}) {
       return false;
     });
   }
+  // Microentrega 40: período (data do registro A, inclusivo nas duas pontas)
+  const from = parseFilterDate(filters.dateFrom);
+  const to = parseFilterDate(filters.dateTo);
+  if (from || to) {
+    list = list.filter((rv) => {
+      const d = rv && rv.result && rv.result.a ? rv.result.a.date : null;
+      if (!(d instanceof Date) || isNaN(d.getTime())) return false;
+      if (from && d.getTime() < from.getTime()) return false;
+      if (to && d.getTime() > to.getTime()) return false;
+      return true;
+    });
+  }
+
+  // Microentrega 40: faixa de valor (valor absoluto do registro A)
+  const min = parseFilterDecimal(filters.valueMin);
+  const max = parseFilterDecimal(filters.valueMax);
+  if (min != null || max != null) {
+    list = list.filter((rv) => {
+      const v = rv && rv.result && rv.result.a ? rv.result.a.value : null;
+      if (v == null) return false;
+      let dv;
+      try {
+        dv = new Decimal(v).abs();
+      } catch {
+        return false;
+      }
+      if (min != null && dv.lt(min)) return false;
+      if (max != null && dv.gt(max)) return false;
+      return true;
+    });
+  }
+
   return list;
 }
 

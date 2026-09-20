@@ -269,6 +269,11 @@ function renderLista() {
     status: document.getElementById('filtro-status')?.value || 'Todos',
     review: document.getElementById('filtro-revisao')?.value || 'Todos',
     search: document.getElementById('filtro-busca')?.value || '',
+    // Microentrega 40: filtros avançados (período + faixa de valor)
+    dateFrom: document.getElementById('filtro-data-de')?.value || '',
+    dateTo: document.getElementById('filtro-data-ate')?.value || '',
+    valueMin: document.getElementById('filtro-valor-min')?.value || '',
+    valueMax: document.getElementById('filtro-valor-max')?.value || '',
   };
   const list = applyFilters(state.reviewables, state.registry, filters);
   if (list.length === 0) {
@@ -293,7 +298,11 @@ function renderLista() {
 
 elFiltros.addEventListener('change', renderLista);
 elFiltros.addEventListener('input', (e) => {
-  if (e.target && e.target.id === 'filtro-busca') renderLista();
+  const id = e.target && e.target.id;
+  // Busca e faixa de valor filtram ao digitar; datas e selects filtram no change
+  if (id === 'filtro-busca' || id === 'filtro-valor-min' || id === 'filtro-valor-max') {
+    renderLista();
+  }
 });
 
 // ---------------------------------------------------------------------------
