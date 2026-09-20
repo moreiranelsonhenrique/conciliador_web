@@ -93,7 +93,7 @@ export function loadMapping(side, columns, storage) {
   if (!mapping || typeof mapping !== 'object') return null;
   // Defesa: toda coluna referenciada precisa existir no layout atual
   const known = new Set((Array.isArray(columns) ? columns : []).map((c) => String(c)));
-  const out = { date: null, value: null, description: null, dc: null, type: null };
+  const out = { date: null, value: null, description: null, dc: null, type: null, balance: null };
   for (const role of Object.keys(out)) {
     const col = mapping[role];
     if (col == null || col === '') {
@@ -127,6 +127,7 @@ export function saveMapping(side, columns, mapping, storage) {
       description: mapping.description || null,
       dc: mapping.dc || null,
       type: mapping.type || null,
+      balance: mapping.balance || null,
     },
     savedAt: new Date().toISOString(),
   };

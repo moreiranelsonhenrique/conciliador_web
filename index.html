@@ -63,13 +63,54 @@
                     </div>
                 </div>
             </div>
-            <button id="btn-conciliar" class="btn btn-primary">🚀 Conciliar</button>
+            <div class="config-section">
+            <h3>Identificação e Saldos</h3>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label for="empresa">Empresa</label>
+                    <input type="text" id="empresa" placeholder="Nome da empresa">
+                </div>
+                <div class="config-item">
+                    <label for="banco">Banco</label>
+                    <input type="text" id="banco" placeholder="Nome do banco">
+                </div>
+                <div class="config-item">
+                    <label for="ag-conta">Ag/Conta</label>
+                    <input type="text" id="ag-conta" placeholder="0612/010123-7">
+                </div>
+            </div>
+            <label class="saldo-toggle">
+                <input type="checkbox" id="saldo-toggle">
+                💰 Deseja controlar saldos? (diagnóstico informado × calculado ao conciliar)
+            </label>
+            <div id="saldo-config" class="hidden">
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="saldo-inicial-a">Saldo inicial — Banco (A)</label>
+                        <input type="text" id="saldo-inicial-a" placeholder="0,00">
+                    </div>
+                    <div class="config-item">
+                        <label for="saldo-inicial-b">Saldo inicial — Financeiro (B)</label>
+                        <input type="text" id="saldo-inicial-b" placeholder="0,00">
+                    </div>
+                    <div class="config-item">
+                        <label for="saldo-tol">Tolerância do check de saldos (R$)</label>
+                        <input type="number" id="saldo-tol" value="0.01" step="0.01" min="0">
+                    </div>
+                </div>
+                <p class="hint" id="saldo-mapping-hint"></p>
+            </div>
+        </div>
+        <button id="btn-conciliar" class="btn btn-primary">🚀 Conciliar</button>
         </section>
 
         <!-- Seção 3: Resultados -->
         <section id="section-resultados" class="section hidden">
             <h2>📊 Resultados da Conciliação</h2>
+            <div id="periodo-info" class="hidden"></div>
+            <div id="diagnostico-saldos" class="hidden"></div>
             <div id="resumo-financeiro"></div>
+            <div id="pendencias" class="hidden"></div>
             <div id="filtros"></div>
             <div id="lista-resultados"></div>
             <div id="sobras-b" class="hidden"></div>

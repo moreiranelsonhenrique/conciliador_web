@@ -11,6 +11,12 @@ import {
   renderResultCard,
   findUnmatchedB,
   renderUnmatchedBTable,
+  buildPendingRows,
+  renderPendingTable,
+  detectPeriodo,
+  unionPeriodo,
+  renderPeriodInfo,
+  renderDiagnosticoSaldos,
 } from '../js/resultsUi.js';
 import { ReviewableResult, BRegistry } from '../js/review.js';
 
@@ -560,6 +566,167 @@ describe('applyFilters — período por chave de dia (M40B)', () => {
     const list = applyFilters([rv14, rv15, rv16], null, { dateFrom: '2026-09-15', dateTo: '2026-09-15' });
     expect(list).toHaveLength(1);
     expect(list[0].a_id).toBe('A1');
+  });
+});
+// ---------------------------------------------------------------------------
+// Pendências no resumo (Microentrega 42)
+// ---------------------------------------------------------------------------
+describe('buildPendingRows (M42)', () => {
+  const makePendFixtures = () => {
+    const a1 = makeRecord('A0', 'A', '100.00', '2026-09-15', 'VINCULADO');
+    const b1 = makeRecord('B0', 'B', '100.00', '2026-09-15', 'VINCULADO');
+    const a2 = makeRecord('A1', 'A', '200.00', '2026-09-15', 'SEM PAR');
+    const b2 = makeRecord('B1', 'B', '300.00', '2026-09-15', 'SOBRA', 'ENTRADA');
+    const rvs = [
+      new ReviewableResult(makeResult(a1, b1)),
+      new ReviewableResult(makeResult(a2, null, null, 'NÃO ENCONTRADO')),
+    ];
+    return { rvs, recordsB: [b1, b2] };
+  };
+
+  it('conta A sem vínculo atual e sobras de B', () => {
+    const { rvs, recordsB } = makePendFixtures();
+    const pend = buildPendingRows(rvs, recordsB);
+    expect(pend.banco.qtd).toBe(1);
+    expect(pend.banco.saidas.toFixed(2)).toBe('200.00');
+    expect(pend.financeiro.qtd).toBe(1);
+    expect(pend.financeiro.entradas.toFixed(2)).toBe('300.00');
+  });
+
+  it('rejeição sem novo vínculo mantém A como pendência; B liberado vira sobra', () => {
+    const { rvs, recordsB } = makePendFixtures();
+    const registry = new BRegistry(recordsB);
+    registry.occupy('B0', 'A0');
+    rvs[0].reject(registry);
+    const pend = buildPendingRows(rvs, recordsB);
+    expect(pend.banco.qtd).toBe(2);    // A0 rejeitado + A1 sem par
+    expect(pend.financeiro.qtd).toBe(2); // B0 liberado + B1 sobra
+  });
+
+  it('vínculo manual tira A das pendências e B das sobras', () => {
+    const { rvs, recordsB } = makePendFixtures();
+    const registry = new BRegistry(recordsB);
+    registry.occupy('B0', 'A0');
+    rvs[1].applyManualMatch('B1', registry);
+    const pend = buildPendingRows(rvs, recordsB);
+    expect(pend.banco.qtd).toBe(0);
+    expect(pend.financeiro.qtd).toBe(0);
+  });
+
+  it('lista vazia zera tudo', () => {
+    const pend = buildPendingRows([], []);
+    expect(pend.banco.qtd).toBe(0);
+    expect(pend.financeiro.qtd).toBe(0);
+    expect(pend.banco.movimentado.toFixed(2)).toBe('0.00');
+  });
+});
+
+describe('renderPendingTable (M42)', () => {
+  it('duas linhas rotuladas + nota informativa', () => {
+    const pend = {
+      banco: { qtd: 1, entradas: new Decimal(0), saidas: new Decimal('200'), movimentado: new Decimal('200') },
+      financeiro: { qtd: 2, entradas: new Decimal('300'), saidas: new Decimal(0), movimentado: new Decimal('300') },
+    };
+    const html = renderPendingTable(pend);
+    expect(html).toContain('Pendências — Banco (A)');
+    expect(html).toContain('Pendências — Financeiro (B)');
+    expect(html).toContain('não somam no TOTAL GERAL');
+    expect(html).toContain('R$ 200,00');
+  });
+
+  it('sem pendências retorna string vazia', () => {
+    const zero = { qtd: 0, entradas: new Decimal(0), saidas: new Decimal(0), movimentado: new Decimal(0) };
+    expect(renderPendingTable({ banco: zero, financeiro: zero })).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Período (Microentrega 42 — D3)
+// ---------------------------------------------------------------------------
+describe('detectPeriodo (M42)', () => {
+  it('min e max das datas válidas', () => {
+    const recs = [
+      { date: new Date('2026-09-10') },
+      { date: new Date('2026-09-20') },
+      { date: null },
+    ];
+    const p = detectPeriodo(recs);
+    expect(formatDateBR(p.de)).toBe('10/09/2026');
+    expect(formatDateBR(p.ate)).toBe('20/09/2026');
+  });
+
+  it('sem datas válidas retorna nulls', () => {
+    expect(detectPeriodo([{ date: null }])).toEqual({ de: null, ate: null });
+    expect(detectPeriodo([])).toEqual({ de: null, ate: null });
+  });
+});
+
+describe('renderPeriodInfo (M42)', () => {
+  it('mostra período por lado, inputs com união e alerta de divergência', () => {
+    const pa = { de: new Date('2026-09-01'), ate: new Date('2026-09-30') };
+    const pb = { de: new Date('2026-09-05'), ate: new Date('2026-09-25') };
+    const html = renderPeriodInfo(pa, pb, unionPeriodo(pa, pb));
+    expect(html).toContain('01/09/2026 a 30/09/2026');
+    expect(html).toContain('05/09/2026 a 25/09/2026');
+    expect(html).toContain('value="2026-09-01"');
+    expect(html).toContain('value="2026-09-30"');
+    expect(html).toContain('períodos divergem');
+  });
+
+  it('períodos iguais não geram alerta', () => {
+    const p = { de: new Date('2026-09-01'), ate: new Date('2026-09-30') };
+    const html = renderPeriodInfo(p, p, unionPeriodo(p, p));
+    expect(html).not.toContain('períodos divergem');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Diagnóstico de saldos (Microentrega 42 — D2)
+// ---------------------------------------------------------------------------
+describe('renderDiagnosticoSaldos (M42)', () => {
+  const makeDiag = (overridesA = {}) => {
+    const base = (o) => ({
+      initial: new Decimal('1000'),
+      entradas: new Decimal('100'),
+      saidas: new Decimal('50'),
+      indefinido: new Decimal(0),
+      indefinidoQtd: 0,
+      valorInvalidoQtd: 0,
+      computedFinal: new Decimal('1050'),
+      reportedFinal: new Decimal('1050'),
+      difference: new Decimal('0'),
+      ok: true,
+      ...o,
+    });
+    return { A: base(overridesA), B: base({}), crossDifference: new Decimal('0') };
+  };
+
+  it('mostra informado × calculado com veredito ok', () => {
+    const html = renderDiagnosticoSaldos(makeDiag());
+    expect(html).toContain('Diagnóstico de Saldos');
+    expect(html).toContain('Banco (A)');
+    expect(html).toContain('Financeiro (B)');
+    expect(html).toContain('Dentro da tolerância');
+    expect(html).toContain('R$ 1.050,00');
+  });
+
+  it('fora da tolerância mostra falha e aviso de arquivo que não fecha', () => {
+    const html = renderDiagnosticoSaldos(makeDiag({
+      reportedFinal: new Decimal('900'),
+      difference: new Decimal('-150'),
+      ok: false,
+    }));
+    expect(html).toContain('Diferença de R$ 150,00');
+    expect(html).toContain('não fecha internamente');
+  });
+
+  it('sem saldo informado o veredito é — (não inventa)', () => {
+    const html = renderDiagnosticoSaldos(makeDiag({ reportedFinal: null, difference: null, ok: null }));
+    expect(html).toContain('sem saldo informado');
+  });
+
+  it('diag inválido retorna vazio', () => {
+    expect(renderDiagnosticoSaldos(null)).toBe('');
   });
 });
 });

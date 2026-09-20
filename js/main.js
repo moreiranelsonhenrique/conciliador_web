@@ -20,7 +20,15 @@ import {
   renderResultCard,
   findUnmatchedB,
   renderUnmatchedBTable,
+  buildPendingRows,
+  renderPendingTable,
+  detectPeriodo,
+  unionPeriodo,
+  renderPeriodInfo,
+  renderDiagnosticoSaldos,
 } from './resultsUi.js';
+import { extractReportedBalances, checkSides } from './balanceCheck.js';
+import { formatBRL } from './money.js';
 import { renderActionButtons, renderCorrectForm } from './reviewUi.js';
 import { exportToExcel, downloadExcel } from './exporter.js';
 
@@ -39,6 +47,11 @@ const state = {
   registry: null,
   unmatchedB: null,
   correctingAId: null, // a_id do cartão em modo de correção
+  // Microentrega 42 (D2/D3)
+  diagnostico: null,
+  periodoA: null,
+  periodoB: null,
+  periodoRelatorio: null, // { de, ate } editado pelo usuário (capa na M43)
 };
 
 // ---------------------------------------------------------------------------
@@ -63,6 +76,16 @@ const elFiltros = document.getElementById('filtros');
 const elSobrasB = document.getElementById('sobras-b');
 const elLista = document.getElementById('lista-resultados');
 const elBtnExportar = document.getElementById('btn-exportar');
+// Microentrega 42 (saldos + período)
+const elSaldoToggle = document.getElementById('saldo-toggle');
+const elSaldoConfig = document.getElementById('saldo-config');
+const elSaldoInicialA = document.getElementById('saldo-inicial-a');
+const elSaldoInicialB = document.getElementById('saldo-inicial-b');
+const elSaldoTol = document.getElementById('saldo-tol');
+const elSaldoMappingHint = document.getElementById('saldo-mapping-hint');
+const elPeriodoInfo = document.getElementById('periodo-info');
+const elDiagnostico = document.getElementById('diagnostico-saldos');
+const elPendencias = document.getElementById('pendencias');
 
 // ---------------------------------------------------------------------------
 // Helpers de DOM
@@ -110,6 +133,13 @@ async function handleFileChange(input, statusEl, which) {
   clearMessage();
   hide(elSectionMapeamento);
   hide(elSectionResultados);
+  hide(elPeriodoInfo);
+  hide(elDiagnostico);
+  hide(elPendencias);
+  state.diagnostico = null;
+  state.periodoA = null;
+  state.periodoB = null;
+  state.periodoRelatorio = null;
   state.recordsA = null;
   state.recordsB = null;
   state.reviewables = null;
@@ -163,8 +193,34 @@ elBtnAnalisar.addEventListener('click', () => {
   renderMappingPanel(elMappingB, state.fileB.columns, state.mappingB);
   hide(elSectionResultados);
   show(elSectionMapeamento);
+  prefillSaldos();
   updateBtnConciliar();
 });
+
+/**
+ * M42 (D2): pré-preenche saldos iniciais editáveis com o primeiro saldo do
+ * arquivo quando há coluna mapeada no papel "Saldo"; senão orienta digitação.
+ */
+function prefillSaldos() {
+  const hintParts = [];
+  const sides = [
+    { lado: 'A', file: state.fileA, mapping: state.mappingA, input: elSaldoInicialA },
+    { lado: 'B', file: state.fileB, mapping: state.mappingB, input: elSaldoInicialB },
+  ];
+  for (const s of sides) {
+    if (!s.file || !s.mapping || !s.mapping.balance) continue;
+    const { first } = extractReportedBalances(s.file.rows, s.mapping.balance);
+    if (first != null) {
+      s.input.value = formatBRL(first);
+      hintParts.push(`Saldo inicial ${s.lado} pré-preenchido com o primeiro saldo da coluna "${s.mapping.balance}" (editável).`);
+    }
+  }
+  if (elSaldoMappingHint) {
+    elSaldoMappingHint.textContent = hintParts.length > 0
+      ? hintParts.join(' ')
+      : 'Coluna de saldo não detectada — digite os saldos iniciais manualmente (ou deixe vazio).';
+  }
+}
 
 elMappingA.addEventListener('change', (e) => {
   const select = e.target.closest('select[data-role]');
@@ -180,6 +236,22 @@ elMappingB.addEventListener('change', (e) => {
   state.mappingB[select.dataset.role] = select.value || null;
   renderMappingPanel(elMappingB, state.fileB.columns, state.mappingB);
   updateBtnConciliar();
+});
+
+// Microentrega 42: toggle de saldos mostra/esconde os campos
+elSaldoToggle.addEventListener('change', () => {
+  if (elSaldoToggle.checked) show(elSaldoConfig);
+  else hide(elSaldoConfig);
+});
+
+// Microentrega 42 (D3): período editável para a capa (consumido na M43)
+elPeriodoInfo.addEventListener('change', (e) => {
+  const id = e.target && e.target.id;
+  if (id !== 'periodo-de' && id !== 'periodo-ate') return;
+  state.periodoRelatorio = {
+    de: document.getElementById('periodo-de')?.value || '',
+    ate: document.getElementById('periodo-ate')?.value || '',
+  };
 });
 
 // ---------------------------------------------------------------------------
@@ -206,6 +278,28 @@ elBtnConciliar.addEventListener('click', () => {
   state.recordsA = buildRecords(state.fileA.rows, state.mappingA, { source: 'A' });
   state.recordsB = buildRecords(state.fileB.rows, state.mappingB, { source: 'B' });
 
+  // Microentrega 42 (D3): período detectado por lado + painel com alerta
+  state.periodoA = detectPeriodo(state.recordsA);
+  state.periodoB = detectPeriodo(state.recordsB);
+  state.periodoRelatorio = null;
+  renderPeriodoPanel();
+
+  // Microentrega 42 (D2): diagnóstico de saldos — roda dentro do fluxo do
+  // Conciliar, apenas quando o usuário liga o toggle; não bloqueia nada.
+  state.diagnostico = null;
+  if (elSaldoToggle.checked) {
+    state.diagnostico = checkSides({
+      recordsA: state.recordsA,
+      recordsB: state.recordsB,
+      initialA: elSaldoInicialA.value,
+      initialB: elSaldoInicialB.value,
+      reportedFinalA: extractReportedBalances(state.fileA.rows, state.mappingA.balance).last,
+      reportedFinalB: extractReportedBalances(state.fileB.rows, state.mappingB.balance).last,
+      tolerance: elSaldoTol.value,
+    });
+  }
+  renderDiagnosticoPanel();
+
   const results = reconcile(state.recordsA, state.recordsB, state.config);
   const { reviewables, registry } = createReviewableResults(results, state.recordsB);
   state.reviewables = reviewables;
@@ -224,6 +318,10 @@ elBtnConciliar.addEventListener('click', () => {
     'NÃO ENCONTRADO': 0,
   };
   for (const rv of reviewables) counts[rv.result.status] = (counts[rv.result.status] || 0) + 1;
+  const diagTxt =
+    state.diagnostico && (state.diagnostico.A.ok === false || state.diagnostico.B.ok === false)
+      ? ' ⚠️ Diagnóstico de saldos encontrou diferença além da tolerância (veja o painel).'
+      : '';
   const sobrasTxt = state.unmatchedB.length > 0
     ? ` Sobras no Arquivo B: ${state.unmatchedB.length}.`
     : '';
@@ -232,6 +330,7 @@ elBtnConciliar.addEventListener('click', () => {
       `${counts.CONCILIADO} conciliado(s), ${counts['POSSÍVEL CORRESPONDÊNCIA']} possível(is), ` +
       `${counts.DIVERGÊNCIA} divergência(s), ${counts['NÃO ENCONTRADO']} não encontrado(s).` +
       sobrasTxt +
+      diagTxt +
       ` Use os botões em cada cartão para confirmar, rejeitar ou corrigir.`,
     'success'
   );
@@ -246,8 +345,51 @@ function renderResultados() {
   if (!state.reviewables) return;
   const summary = buildSummaryRows(state.reviewables);
   elResumo.innerHTML = renderSummaryTable(summary);
+  renderPendencias();
   renderUnmatchedBSection();
   renderLista();
+}
+
+/**
+ * M42 (D3): painel de período. Renderizado uma vez por conciliação
+ * (não a cada ação de revisão, para não atropelar a edição do usuário).
+ */
+function renderPeriodoPanel() {
+  if (!state.periodoA || !state.periodoB) {
+    hide(elPeriodoInfo);
+    return;
+  }
+  const uniao = unionPeriodo(state.periodoA, state.periodoB);
+  elPeriodoInfo.innerHTML = renderPeriodInfo(state.periodoA, state.periodoB, uniao);
+  show(elPeriodoInfo);
+}
+
+/**
+ * M42 (D2): painel de diagnóstico (apenas com toggle ligado).
+ */
+function renderDiagnosticoPanel() {
+  if (!state.diagnostico) {
+    elDiagnostico.innerHTML = '';
+    hide(elDiagnostico);
+    return;
+  }
+  elDiagnostico.innerHTML = renderDiagnosticoSaldos(state.diagnostico);
+  show(elDiagnostico);
+}
+
+/**
+ * M42: pendências dinâmicas (A sem vínculo + sobras de B) abaixo do resumo.
+ */
+function renderPendencias() {
+  const pending = buildPendingRows(state.reviewables, state.recordsB);
+  const html = renderPendingTable(pending);
+  if (html) {
+    elPendencias.innerHTML = html;
+    show(elPendencias);
+  } else {
+    elPendencias.innerHTML = '';
+    hide(elPendencias);
+  }
 }
 
 function renderUnmatchedBSection() {

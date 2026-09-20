@@ -546,3 +546,209 @@ export function renderUnmatchedBTable(unmatchedB) {
   html += '</tbody></table></details>';
   return html;
 }
+
+// ---------------------------------------------------------------------------
+// Pendências no resumo (Microentrega 42 — item registrado na M40)
+// ---------------------------------------------------------------------------
+/**
+ * Soma registros por direção (valores absolutos). INDEFINIDO entra só no movimentado.
+ * @param {Array<Object>} records
+ * @returns {Object} { qtd, entradas, saidas, movimentado }
+ */
+function sumByDirection(records) {
+  let qtd = 0;
+  let entradas = new Decimal(0);
+  let saidas = new Decimal(0);
+  let indefinido = new Decimal(0);
+  for (const rec of Array.isArray(records) ? records : []) {
+    if (!rec) continue;
+    qtd += 1;
+    if (rec.value == null) continue;
+    const abs = rec.value.abs();
+    if (rec.direction === 'ENTRADA') entradas = entradas.plus(abs);
+    else if (rec.direction === 'SAIDA') saidas = saidas.plus(abs);
+    else indefinido = indefinido.plus(abs);
+  }
+  return { qtd, entradas, saidas, movimentado: entradas.plus(saidas).plus(indefinido) };
+}
+
+/**
+ * Monta as pendências atuais (dinâmicas):
+ * - Banco (A): registros A sem vínculo atual (não encontrados, rejeitados sem novo vínculo).
+ * - Financeiro (B): sobras (registros B sem vínculo, situação atual).
+ * @param {Array<Object>} reviewables  ReviewableResult[]
+ * @param {Array<Object>} recordsB  Todos os registros B
+ * @returns {{ banco: Object, financeiro: Object }}
+ */
+export function buildPendingRows(reviewables, recordsB) {
+  const list = Array.isArray(reviewables) ? reviewables : [];
+  const pendA = list
+    .filter((rv) => rv && rv.result && !rv.has_link)
+    .map((rv) => rv.result.a)
+    .filter(Boolean);
+  const sobrasB = findUnmatchedB(list, recordsB);
+  return {
+    banco: sumByDirection(pendA),
+    financeiro: sumByDirection(sobrasB),
+  };
+}
+
+/**
+ * Gera o HTML do bloco de pendências. INFORMATIVO: os valores já estão
+ * contados nas linhas de status/sobras e NÃO somam no TOTAL GERAL.
+ * Retorna string vazia quando não há pendências.
+ * @param {{ banco: Object, financeiro: Object }} pending
+ * @returns {string}
+ */
+export function renderPendingTable(pending) {
+  if (!pending || !pending.banco || !pending.financeiro) return '';
+  if (pending.banco.qtd === 0 && pending.financeiro.qtd === 0) return '';
+  const row = (label, p) =>
+    `<tr><td>${label}</td><td>${p.qtd}</td>` +
+    `<td>${formatBRL(p.entradas)}</td><td>${formatBRL(p.saidas)}</td>` +
+    `<td>${formatBRL(p.movimentado)}</td></tr>`;
+  let html = '<div class="pendencias">';
+  html += '<table class="resumo-table"><thead><tr>';
+  html += '<th>Pendências (informativo)</th><th>Qtd</th><th>Entradas (R$)</th><th>Saídas (R$)</th><th>Total Movimentado (R$)</th>';
+  html += '</tr></thead><tbody>';
+  html += row('⬜ Pendências — Banco (A)', pending.banco);
+  html += row('⬜ Pendências — Financeiro (B)', pending.financeiro);
+  html += '</tbody></table>';
+  html += '<p class="hint">Informativo: estes valores já estão contados nas linhas de status e nas sobras — não somam no TOTAL GERAL.</p>';
+  html += '</div>';
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// Período (Microentrega 42 — D3)
+// ---------------------------------------------------------------------------
+/**
+ * Detecta o período (min/max de datas válidas) de uma lista de registros.
+ * @param {Array<Object>} records
+ * @returns {{ de: Date|null, ate: Date|null }}
+ */
+export function detectPeriodo(records) {
+  let de = null;
+  let ate = null;
+  for (const rec of Array.isArray(records) ? records : []) {
+    const d = rec && rec.date;
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (de == null || d.getTime() < de.getTime()) de = d;
+    if (ate == null || d.getTime() > ate.getTime()) ate = d;
+  }
+  return { de, ate };
+}
+
+/**
+ * União de dois períodos (menor início, maior fim).
+ * @param {Object} pa
+ * @param {Object} pb
+ * @returns {{ de: Date|null, ate: Date|null }}
+ */
+export function unionPeriodo(pa, pb) {
+  const a = pa || {};
+  const b = pb || {};
+  let de = null;
+  let ate = null;
+  for (const d of [a.de, b.de]) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (de == null || d.getTime() < de.getTime()) de = d;
+  }
+  for (const d of [a.ate, b.ate]) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (ate == null || d.getTime() > ate.getTime()) ate = d;
+  }
+  return { de, ate };
+}
+
+/**
+ * Converte Date para valor de input[type=date] (YYYY-MM-DD, via UTC).
+ * @param {Date|null} d
+ * @returns {string}
+ */
+function dateToInputValue(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Painel de período (D3): período detectado por lado, alerta se os lados
+ * divergirem e período editável para a capa do relatório.
+ * @param {Object} periodoA  { de, ate } do Banco (A)
+ * @param {Object} periodoB  { de, ate } do Financeiro (B)
+ * @param {Object} uniao  { de, ate } pré-preenchimento dos inputs editáveis
+ * @returns {string}
+ */
+export function renderPeriodInfo(periodoA, periodoB, uniao) {
+  const pa = periodoA || { de: null, ate: null };
+  const pb = periodoB || { de: null, ate: null };
+  const u = uniao || { de: null, ate: null };
+  const fmt = (d) => formatDateBR(d) || '(sem data)';
+  const divergente = fmt(pa.de) !== fmt(pb.de) || fmt(pa.ate) !== fmt(pb.ate);
+  let html = '<div class="periodo-info">';
+  html +=
+    `<p><strong>📅 Período detectado</strong> — ` +
+    `Banco (A): ${fmt(pa.de)} a ${fmt(pa.ate)} · ` +
+    `Financeiro (B): ${fmt(pb.de)} a ${fmt(pb.ate)}</p>`;
+  if (divergente) {
+    html += '<div class="periodo-alerta">⚠️ Os períodos divergem entre os lados — confirme se os arquivos cobrem o mesmo intervalo.</div>';
+  }
+  html +=
+    '<p>Período do relatório (editável): ' +
+    `<label>De <input type="date" id="periodo-de" value="${dateToInputValue(u.de)}"></label> ` +
+    `<label>Até <input type="date" id="periodo-ate" value="${dateToInputValue(u.ate)}"></label></p>`;
+  html += '</div>';
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// Diagnóstico de saldos (Microentrega 42 — D2)
+// ---------------------------------------------------------------------------
+/**
+ * Painel de diagnóstico de saldos (saída de checkSides).
+ * Saldos finais calculado/informado são SOMENTE LEITURA (D2): aparecem só aqui.
+ * @param {Object} diag  { A, B, crossDifference } — saída de checkSides
+ * @returns {string}
+ */
+export function renderDiagnosticoSaldos(diag) {
+  if (!diag || !diag.A || !diag.B) return '';
+  const fmt = (v) => (v == null ? '—' : formatBRL(v));
+  const verdict = (side) => {
+    if (side.ok == null) return '<td class="diagnostico-neutro">— (sem saldo informado)</td>';
+    if (side.ok) return '<td class="diagnostico-ok">✅ Dentro da tolerância</td>';
+    return `<td class="diagnostico-falha">❌ Diferença de ${formatBRL(side.difference.abs())}</td>`;
+  };
+  const row = (label, side) =>
+    `<tr><td>${label}</td>` +
+    `<td>${fmt(side.initial)}</td>` +
+    `<td>${fmt(side.entradas)}</td>` +
+    `<td>${fmt(side.saidas)}</td>` +
+    `<td>${fmt(side.computedFinal)}</td>` +
+    `<td>${fmt(side.reportedFinal)}</td>` +
+    `<td>${fmt(side.difference)}</td>` +
+    verdict(side) +
+    '</tr>';
+  let html = '<div class="diagnostico-saldos">';
+  html += '<h3>🩺 Diagnóstico de Saldos (informado × calculado)</h3>';
+  html += '<table><thead><tr>' +
+    '<th>Lado</th><th>Saldo inicial</th><th>Entradas</th><th>Saídas</th>' +
+    '<th>Final calculado</th><th>Final informado</th><th>Diferença</th><th>Resultado</th>' +
+    '</tr></thead><tbody>';
+  html += row('Banco (A)', diag.A);
+  html += row('Financeiro (B)', diag.B);
+  html += '</tbody></table>';
+  html += `<p>Diferença entre lados (calculado B − calculado A): <strong>${fmt(diag.crossDifference)}</strong></p>`;
+  if (diag.A.ok === false || diag.B.ok === false) {
+    html += '<p class="diagnostico-falha">⚠️ Arquivo não fecha internamente: possíveis linhas faltando/sobrando ou erro de mapeamento. A conciliação segue mesmo assim.</p>';
+  }
+  if (diag.A.valorInvalidoQtd > 0 || diag.B.valorInvalidoQtd > 0) {
+    html +=
+      `<p class="hint">ℹ️ Registros com valor inválido não entram no cálculo: ` +
+      `${diag.A.valorInvalidoQtd} no Banco (A), ${diag.B.valorInvalidoQtd} no Financeiro (B).</p>`;
+  }
+  html += '</div>';
+  return html;
+}

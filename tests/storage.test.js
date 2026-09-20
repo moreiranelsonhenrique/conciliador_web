@@ -43,7 +43,7 @@ describe('storageKey', () => {
 
 describe('loadMapping/saveMapping', () => {
   const cols = ['Data', 'Descrição', 'Valor', 'D/C'];
-  const mapping = { date: 'Data', value: 'Valor', description: 'Descrição', dc: 'D/C', type: null };
+  const mapping = { date: 'Data', value: 'Valor', description: 'Descrição', dc: 'D/C', type: null, balance: null };
 
   it('salvar e carregar devolve o mesmo mapeamento (round-trip)', () => {
     const store = makeFakeStorage();
@@ -75,6 +75,7 @@ describe('loadMapping/saveMapping', () => {
       description: null,
       dc: null,
       type: null,
+      balance: null,
     });
   });
 
@@ -91,6 +92,14 @@ describe('loadMapping/saveMapping', () => {
     const store = makeFakeStorage();
     saveMapping('A', cols, mapping, store);
     expect(loadMapping('B', cols, store)).toBeNull();
+  });
+
+  it('papel Saldo é persistido (M42)', () => {
+    const store = makeFakeStorage();
+    const colsWithSaldo = ['Data', 'Descrição', 'Valor', 'D/C', 'Saldo'];
+    const mapWithSaldo = { date: 'Data', value: 'Valor', description: 'Descrição', dc: 'D/C', type: null, balance: 'Saldo' };
+    expect(saveMapping('A', colsWithSaldo, mapWithSaldo, store)).toBe(true);
+    expect(loadMapping('A', colsWithSaldo, store).balance).toBe('Saldo');
   });
 
   it('mapeamento apontando para coluna inexistente é descartado', () => {

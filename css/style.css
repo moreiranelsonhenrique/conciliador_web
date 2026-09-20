@@ -559,6 +559,89 @@ body {
     font-size: 0.85rem;
 }
 
+/* ===== Saldos, período e diagnóstico (M42) ===== */
+.saldo-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1rem 0 0.5rem;
+    font-size: 0.9rem;
+    color: #4a5568;
+    cursor: pointer;
+    font-weight: 600;
+}
+#saldo-config {
+    padding: 0.75rem;
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+.periodo-info {
+    padding: 0.75rem 1rem;
+    background: #ebf8ff;
+    border: 1px solid #90cdf4;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #2a4365;
+}
+.periodo-info input[type="date"] {
+    padding: 0.35rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.periodo-alerta {
+    background: #fefcbf;
+    color: #744210;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    margin: 0.5rem 0;
+}
+.diagnostico-saldos {
+    padding: 0.75rem 1rem;
+    background: #fffaf0;
+    border: 1px solid #f6ad55;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+.diagnostico-saldos h3 {
+    font-size: 0.95rem;
+    color: #7b341e;
+    margin-bottom: 0.5rem;
+}
+.diagnostico-saldos table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.diagnostico-saldos th,
+.diagnostico-saldos td {
+    padding: 0.5rem;
+    text-align: right;
+    border-bottom: 1px solid #fbd38d;
+}
+.diagnostico-saldos th:first-child,
+.diagnostico-saldos td:first-child {
+    text-align: left;
+}
+.diagnostico-saldos th {
+    background: #feebc8;
+    color: #7b341e;
+    font-weight: 600;
+}
+.diagnostico-ok { color: #22543d; font-weight: 600; }
+.diagnostico-falha { color: #742a2a; font-weight: 600; }
+.diagnostico-neutro { color: #718096; }
+.pendencias {
+    margin-bottom: 1rem;
+}
+.pendencias .hint {
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+}
+
 /* ===== Responsivo ===== */
 @media (max-width: 768px) {
     .upload-grid,
