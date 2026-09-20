@@ -372,7 +372,19 @@ elLista.addEventListener('input', (e) => {
   const aId = form.dataset.aId;
   const rv = findReviewable(aId);
   if (!rv) return;
+  // M40B: preserva a escolha do usuário se a opção continuar na lista filtrada
+  const selAntigo = form.querySelector('select[data-role="correct-b"]');
+  const selecaoAnterior = selAntigo ? selAntigo.value : '';
   renderCorrectMode(rv, input.value);
+  const selNovo = elLista.querySelector(
+    `.correct-form[data-a-id="${CSS.escape(aId)}"] select[data-role="correct-b"]`
+  );
+  if (selNovo) {
+    const idx = Array.from(selNovo.options).findIndex(
+      (o) => selecaoAnterior !== '' && o.value === selecaoAnterior
+    );
+    selNovo.selectedIndex = idx >= 0 ? idx : -1;
+  }
   // Mantém o foco no campo de busca após o re-render
   const novo = elLista.querySelector(
     `.correct-form[data-a-id="${CSS.escape(aId)}"] [data-role="correct-search"]`
@@ -435,6 +447,9 @@ function renderCorrectMode(rv, filterTerm = '') {
     .map((id) => state.registry.get(id))
     .filter(Boolean);
   actionsContainer.innerHTML = renderCorrectForm(rv, availableBs, filterTerm);
+  // M40B: sem placeholder no select — inicia sem pré-seleção (escolha explícita)
+  const selNovo = actionsContainer.querySelector('select[data-role="correct-b"]');
+  if (selNovo) selNovo.selectedIndex = -1;
 }
 
 // ---------------------------------------------------------------------------

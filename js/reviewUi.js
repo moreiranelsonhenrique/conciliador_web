@@ -151,7 +151,9 @@ export function renderCorrectForm(rv, availableBs, filterTerm = '') {
   const all = Array.isArray(availableBs) ? availableBs : [];
   const list = filterAvailableBs(all, term);
 
-  let options = '<option value="">(selecione um registro B)</option>';
+  // M40B: sem option de placeholder — com a lista visível (size) o usuário
+  // escolhe clicando direto; main.js garante que nada vem pré-selecionado.
+  let options = '';
   for (const b of list) {
     const linha = b.original_row != null ? `L${b.original_row}` : '?';
     const data = formatDateBR(b.date) || '(sem data)';

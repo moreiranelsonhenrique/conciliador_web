@@ -214,16 +214,31 @@ export function renderFiltersBar() {
 }
 
 /**
- * Interpreta data de filtro (input type="date" → 'YYYY-MM-DD') como
- * Date em midnight UTC. Retorna null para valor vazio/inválido.
+ * Converte data de filtro (input type="date" → 'YYYY-MM-DD') em chave
+ * numérica AAAAMMDD. Retorna null para valor vazio/inválido.
+ * Comparação por chave de dia (não por timestamp): registro com hora
+ * diferente de 00:00 UTC continua casando com o próprio dia (M40B).
  * @param {*} value
- * @returns {Date|null}
+ * @returns {number|null}
  */
-function parseFilterDate(value) {
-  if (!value) return null;
-  const d = new Date(String(value));
-  if (!(d instanceof Date) || isNaN(d.getTime())) return null;
-  return d;
+function parseFilterDateKey(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value == null ? '' : value).trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return year * 10000 + month * 100 + day;
+}
+
+/**
+ * Chave de dia AAAAMMDD de um Date, pelos métodos UTC — mesma convenção
+ * de formatDateBR: o dia exibido no cartão é o dia usado no filtro.
+ * @param {Date} d
+ * @returns {number}
+ */
+function dateKeyUTC(d) {
+  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
 }
 
 /**
@@ -246,7 +261,8 @@ function parseFilterDecimal(value) {
  * Aplica filtros (status, revisão, busca textual, período e faixa de valor)
  * sobre os resultados.
  * - A busca procura na descrição do A e na descrição do vínculo atual (via registry).
- * - Período (dateFrom/dateTo) filtra pela DATA do registro A, inclusivo;
+ * - Período (dateFrom/dateTo) filtra pela DATA do registro A, inclusivo,
+ *   comparando o dia-calendário em UTC (independe da hora do registro);
  *   registro sem data fica de fora quando o filtro está ativo.
  * - Faixa de valor (valueMin/valueMax) compara com o VALOR ABSOLUTO do registro A;
  *   valores de filtro inválidos são ignorados.
@@ -284,15 +300,18 @@ export function applyFilters(reviewables, registry, filters = {}) {
       return false;
     });
   }
-  // Microentrega 40: período (data do registro A, inclusivo nas duas pontas)
-  const from = parseFilterDate(filters.dateFrom);
-  const to = parseFilterDate(filters.dateTo);
-  if (from || to) {
+  // Microentrega 40 (ajuste M40B): período por CHAVE DE DIA (AAAAMMDD em UTC),
+  // inclusivo nas duas pontas. Comparar timestamps quebrava De=Até no mesmo dia
+  // quando a data do registro tem hora diferente de 00:00 UTC.
+  const fromKey = parseFilterDateKey(filters.dateFrom);
+  const toKey = parseFilterDateKey(filters.dateTo);
+  if (fromKey != null || toKey != null) {
     list = list.filter((rv) => {
       const d = rv && rv.result && rv.result.a ? rv.result.a.date : null;
       if (!(d instanceof Date) || isNaN(d.getTime())) return false;
-      if (from && d.getTime() < from.getTime()) return false;
-      if (to && d.getTime() > to.getTime()) return false;
+      const key = dateKeyUTC(d);
+      if (fromKey != null && key < fromKey) return false;
+      if (toKey != null && key > toKey) return false;
       return true;
     });
   }

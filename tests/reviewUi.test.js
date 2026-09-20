@@ -152,12 +152,13 @@ describe('renderCorrectForm', () => {
     expect(html).toContain('data-action="cancel-correct"');
   });
 
-  it('option padrão "(selecione)" está presente', () => {
+  it('M40B: sem option de placeholder (lista visível, escolha explícita)', () => {
     const a = makeRecord('A0', 'A', '100', '2026-09-15', 'X');
     const b = makeRecord('B0', 'B', '100', '2026-09-15', 'X');
     const rv = new ReviewableResult(makeResult(a, b));
     const html = renderCorrectForm(rv, []);
-    expect(html).toContain('<option value="">(selecione um registro B)</option>');
+    expect(html).not.toContain('(selecione um registro B)');
+    expect(html).toContain('data-role="correct-b"');
   });
 
   it('trata B sem data e sem descrição', () => {
@@ -255,11 +256,11 @@ describe('renderCorrectForm com busca', () => {
     expect(html).toContain('value="silva"');
   });
 
-  it('filtro sem correspondência deixa só o option padrão', () => {
+  it('filtro sem correspondência deixa o select sem opções', () => {
     const { rv, bAvail } = makeFormFixture();
     const html = renderCorrectForm(rv, bAvail, 'zzzabc');
     expect(html).toContain('0 de 2 registro(s) disponível(is)');
-    expect(html).toContain('(selecione um registro B)');
+    expect(html).not.toContain('<option');
   });
 
   it('M37B: select é lista visível (size) — opções filtradas aparecem sem expandir', () => {

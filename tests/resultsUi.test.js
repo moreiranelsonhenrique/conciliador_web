@@ -530,4 +530,36 @@ describe('applyFilters — filtros avançados (M40)', () => {
     expect(list).toHaveLength(2);
   });
 });
+// ---------------------------------------------------------------------------
+// applyFilters — período por chave de dia (Microentrega 40B)
+// ---------------------------------------------------------------------------
+describe('applyFilters — período por chave de dia (M40B)', () => {
+  const makeRecordAt = (id, iso) => ({
+    id,
+    source: 'A',
+    value: new Decimal('100.00'),
+    date: new Date(iso),
+    description_original: 'X',
+    direction: 'SAIDA',
+    original_row: 1,
+    alerts: [],
+  });
+
+  it('De=Até no mesmo dia encontra registro com hora diferente de 00:00 UTC (bug real)', () => {
+    // Simula data com componente de hora (ex.: midnight local em UTC-3 = 03:00 UTC)
+    const a = makeRecordAt('A0', '2026-09-15T03:00:00.000Z');
+    const rv = new ReviewableResult(makeResult(a, null, null, 'NÃO ENCONTRADO'));
+    const list = applyFilters([rv], null, { dateFrom: '2026-09-15', dateTo: '2026-09-15' });
+    expect(list).toHaveLength(1);
+  });
+
+  it('dia anterior e posterior ficam de fora quando De=Até', () => {
+    const rv14 = new ReviewableResult(makeResult(makeRecordAt('A0', '2026-09-14T03:00:00.000Z'), null, null, 'NÃO ENCONTRADO'));
+    const rv15 = new ReviewableResult(makeResult(makeRecordAt('A1', '2026-09-15T03:00:00.000Z'), null, null, 'NÃO ENCONTRADO'));
+    const rv16 = new ReviewableResult(makeResult(makeRecordAt('A2', '2026-09-16T03:00:00.000Z'), null, null, 'NÃO ENCONTRADO'));
+    const list = applyFilters([rv14, rv15, rv16], null, { dateFrom: '2026-09-15', dateTo: '2026-09-15' });
+    expect(list).toHaveLength(1);
+    expect(list[0].a_id).toBe('A1');
+  });
+});
 });
