@@ -7,7 +7,8 @@ import Decimal from 'decimal.js';
  * 1. Sem match ou score abaixo do mínimo → NÃO ENCONTRADO
  * 2. Ambiguidade (2º candidato próximo) → POSSÍVEL CORRESPONDÊNCIA
  * 3. Valor ou data fora da tolerância → DIVERGÊNCIA
- * 4. Caso contrário → CONCILIADO
+ * 4. Score de texto <= 0 ou ausente → POSSÍVEL CORRESPONDÊNCIA (D1 — régua conservadora)
+ * 5. Caso contrário → CONCILIADO
  *
  * @param {Object} match  { a_id, b_id, score, score_details }
  * @param {Array<Object>} allCandidates  Todos os candidatos para este a_id
@@ -106,7 +107,22 @@ export function classifyMatch1to1(match, allCandidates, config = {}, recordA = n
     };
   }
 
-  // Score alto, sem ambiguidade, dentro das tolerâncias
+  // Microentrega 38 (D1): régua conservadora — CONCILIADO automático exige
+  // score de texto > 0 (similaridade >= "Similaridade Texto Mínima" da config).
+  // score_details ausente é tratado como texto 0 (direção segura: revisão humana).
+  const textScore =
+    match.score_details && typeof match.score_details.text === 'number'
+      ? match.score_details.text
+      : 0;
+  if (textScore <= 0) {
+    return {
+      status: 'POSSÍVEL CORRESPONDÊNCIA',
+      justification: 'Similaridade de texto abaixo da mínima configurada — revisão humana necessária',
+      alerts: ['Texto insuficiente para conciliação automática'],
+    };
+  }
+
+  // Score alto, sem ambiguidade, dentro das tolerâncias e com texto suficiente
   return {
     status: 'CONCILIADO',
     justification: `Match com score ${match.score}`,

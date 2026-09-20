@@ -192,4 +192,14 @@ describe('reconcile', () => {
     expect(results[0].alerts.some((al) => al.includes('Ambiguidade'))).toBe(true);
   });
 
+  it('M38/D1: match só por valor+data vira POSSÍVEL (texto insuficiente)', () => {
+    // Cenário real que a D1 protege: pagamentos repetidos de mesmo valor no mesmo dia,
+    // com descrições diferentes. Jaccard entre as descrições = 0 → texto 0 → POSSÍVEL.
+    const a = [makeRecord('A0', 'A', '1500.00', '2026-09-15', 'PAGTO FORNECEDOR')];
+    const b = [makeRecord('B0', 'B', '1500.00', '2026-09-15', 'PIX TRANSFERENCIA')];
+    const results = reconcile(a, b);
+    expect(results).toHaveLength(1);
+    expect(results[0].status).toBe('POSSÍVEL CORRESPONDÊNCIA');
+    expect(results[0].score_details.text).toBe(0);
+  });
 });

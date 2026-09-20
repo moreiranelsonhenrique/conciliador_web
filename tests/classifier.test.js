@@ -4,7 +4,8 @@ import { classifyMatch1to1, classifyBatchMatch, classifyNotFound } from '../js/c
 
 describe('classifyMatch1to1', () => {
   it('classifica como CONCILIADO quando score alto e sem ambiguidade', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 95 };
+    // M38/D1: score_details com texto > 0 é obrigatório para CONCILIADO automático
+    const match = { a_id: 'A0', b_id: 'B0', score: 95, score_details: { total: 95, value: 50, date: 20, text: 25 } };
     const candidates = [match];
     const result = classifyMatch1to1(match, candidates);
     expect(result.status).toBe('CONCILIADO');
@@ -37,7 +38,8 @@ describe('classifyMatch1to1', () => {
   });
 
   it('classifica como CONCILIADO quando diferença é exatamente igual ao threshold', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 90 };
+    // M38/D1: score_details com texto > 0 é obrigatório para CONCILIADO automático
+    const match = { a_id: 'A0', b_id: 'B0', score: 90, score_details: { total: 90, value: 50, date: 20, text: 20 } };
     const candidates = [
       match,
       { a_id: 'A0', b_id: 'B1', score: 85 }, // diferença = 5
@@ -57,7 +59,8 @@ describe('classifyMatch1to1', () => {
   });
 
   it('classifica como CONCILIADO quando data está dentro da tolerância', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 100 };
+    // M38/D1: score_details com texto > 0 é obrigatório para CONCILIADO automático
+    const match = { a_id: 'A0', b_id: 'B0', score: 100, score_details: { total: 100, value: 50, date: 20, text: 30 } };
     const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
     const b = { id: 'B0', value: new Decimal('1500.00'), date: new Date('2026-09-17'), description_original: 'PAGTO' };
     const result = classifyMatch1to1(match, [match], { dateToleranceDays: 2 }, a, b);
@@ -74,38 +77,12 @@ describe('classifyMatch1to1', () => {
   });
 
   it('data ausente não gera divergência de data', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 80 };
+    // M38/D1: score_details com texto > 0 é obrigatório para CONCILIADO automático
+    const match = { a_id: 'A0', b_id: 'B0', score: 80, score_details: { total: 80, value: 50, date: 20, text: 10 } };
     const a = { id: 'A0', value: new Decimal('100.00'), date: null, description_original: 'X' };
     const b = { id: 'B0', value: new Decimal('100.00'), date: new Date('2026-09-25'), description_original: 'X' };
     const result = classifyMatch1to1(match, [match], { dateToleranceDays: 0 }, a, b);
     expect(result.status).toBe('CONCILIADO');
-  });
-
-  it('classifica como DIVERGÊNCIA quando data está fora da tolerância', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 80 };
-    const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO FORNECEDOR' };
-    const b = { id: 'B0', value: new Decimal('1500.00'), date: new Date('2026-09-20'), description_original: 'PAGTO FORNECEDOR' };
-    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 2 }, a, b);
-    expect(result.status).toBe('DIVERGÊNCIA');
-    expect(result.justification).toContain('Data fora da tolerância');
-    expect(result.alerts).toHaveLength(1);
-  });
-
-  it('classifica como CONCILIADO quando data está dentro da tolerância', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 100 };
-    const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
-    const b = { id: 'B0', value: new Decimal('1500.00'), date: new Date('2026-09-17'), description_original: 'PAGTO' };
-    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 2 }, a, b);
-    expect(result.status).toBe('CONCILIADO');
-  });
-
-  it('classifica como DIVERGÊNCIA quando valor está fora da tolerância', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 70 };
-    const a = { id: 'A0', value: new Decimal('1500.00'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
-    const b = { id: 'B0', value: new Decimal('1500.50'), date: new Date('2026-09-15'), description_original: 'PAGTO' };
-    const result = classifyMatch1to1(match, [match], { valueTolerance: '0.01', dateToleranceDays: 2 }, a, b);
-    expect(result.status).toBe('DIVERGÊNCIA');
-    expect(result.justification).toContain('Valor fora da tolerância');
   });
 
   it('valor e data fora da tolerância geram dois alertas', () => {
@@ -117,14 +94,6 @@ describe('classifyMatch1to1', () => {
     expect(result.alerts).toHaveLength(2);
   });
 
-  it('data ausente não gera divergência de data', () => {
-    const match = { a_id: 'A0', b_id: 'B0', score: 80 };
-    const a = { id: 'A0', value: new Decimal('100.00'), date: null, description_original: 'X' };
-    const b = { id: 'B0', value: new Decimal('100.00'), date: new Date('2026-09-25'), description_original: 'X' };
-    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 0 }, a, b);
-    expect(result.status).toBe('CONCILIADO');
-  });
-
   it('ambiguidade tem prioridade sobre divergência', () => {
     const match = { a_id: 'A0', b_id: 'B0', score: 80 };
     const rival = { a_id: 'A0', b_id: 'B1', score: 79 };
@@ -132,6 +101,33 @@ describe('classifyMatch1to1', () => {
     const b = { id: 'B0', value: new Decimal('100.00'), date: new Date('2026-09-25'), description_original: 'X' };
     const result = classifyMatch1to1(match, [match, rival], { dateToleranceDays: 2 }, a, b);
     expect(result.status).toBe('POSSÍVEL CORRESPONDÊNCIA');
+  });
+
+  // --- Microentrega 38 (D1): régua conservadora de texto -------------------
+
+  it('M38: texto zerado vira POSSÍVEL CORRESPONDÊNCIA (D1)', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 80, score_details: { total: 80, value: 50, date: 20, text: 0 } };
+    const a = { id: 'A0', value: new Decimal('100.00'), date: new Date('2026-09-15'), description_original: 'PAGTO FORNECEDOR' };
+    const b = { id: 'B0', value: new Decimal('100.00'), date: new Date('2026-09-15'), description_original: 'PIX RECEBIDO' };
+    const result = classifyMatch1to1(match, [match], { dateToleranceDays: 2 }, a, b);
+    expect(result.status).toBe('POSSÍVEL CORRESPONDÊNCIA');
+    expect(result.justification.toLowerCase()).toContain('texto');
+    expect(result.alerts.length).toBeGreaterThan(0);
+  });
+
+  it('M38: score_details ausente vira POSSÍVEL CORRESPONDÊNCIA (D1)', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 80 };
+    const result = classifyMatch1to1(match, [match]);
+    expect(result.status).toBe('POSSÍVEL CORRESPONDÊNCIA');
+  });
+
+  it('M38: DIVERGÊNCIA tem prioridade sobre a régua de texto', () => {
+    const match = { a_id: 'A0', b_id: 'B0', score: 70, score_details: { total: 70, value: 50, date: 20, text: 0 } };
+    const a = { id: 'A0', value: new Decimal('100.00'), date: new Date('2026-09-15'), description_original: 'X' };
+    const b = { id: 'B0', value: new Decimal('200.00'), date: new Date('2026-09-15'), description_original: 'Y' };
+    const result = classifyMatch1to1(match, [match], { valueTolerance: '0.01', dateToleranceDays: 2 }, a, b);
+    expect(result.status).toBe('DIVERGÊNCIA');
+    expect(result.justification).toContain('Valor fora da tolerância');
   });
 });
 
@@ -180,7 +176,8 @@ describe('classifyBatchMatch', () => {
     const result = classifyBatchMatch(batchMatch, {}, recordsB);
     expect(result.status).toBe('NÃO ENCONTRADO');
   });
-    it('adiciona alerta de ambiguidade quando lote tem múltiplas combinações', () => {
+
+  it('adiciona alerta de ambiguidade quando lote tem múltiplas combinações', () => {
     const batchMatch = { a_id: 'A0', b_ids: ['B0', 'B1'], ambiguous: true, alternative_count: 2 };
     const recordA = { id: 'A0', value: new Decimal('5000') };
     const recordsB = [
