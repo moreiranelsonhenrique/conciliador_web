@@ -21,6 +21,11 @@ const COLUMN_PATTERNS = {
   type: [
     'tipo', 'tipo lancamento', 'categoria', 'trntype', 'tipo movimento',
   ],
+  // Microentrega 41 (D2): papel opcional para controle de saldos
+  balance: [
+    'saldo', 'balance', 'saldo final', 'saldo atual', 'saldo disponivel',
+    'saldo do dia', 'saldo conta', 'saldo apos lancamento', 'ledgerval',
+  ],
 };
 
 /**
@@ -47,15 +52,15 @@ function normalizeColumnName(name) {
  */
 export function inferMapping(columns) {
   if (!Array.isArray(columns) || columns.length === 0) {
-    return { date: null, value: null, description: null, dc: null, type: null };
+    return { date: null, value: null, description: null, dc: null, type: null, balance: null };
   }
-
   const mapping = {
     date: null,
     value: null,
     description: null,
     dc: null,
     type: null,
+    balance: null,
   };
 
   const usedColumns = new Set();
