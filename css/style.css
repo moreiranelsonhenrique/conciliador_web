@@ -66,7 +66,7 @@ body {
     border: 2px dashed #cbd5e0;
     border-radius: 8px;
     padding: 1.5rem;
-    text-align: center;
+    text-align: left;
     transition: border-color 0.3s;
 }
 
@@ -245,13 +245,18 @@ body {
     text-align: left;
     border-bottom: 1px solid #e2e8f0;
 }
-
 .resumo-table th {
     background: #f7fafc;
     font-weight: 600;
     color: #4a5568;
 }
-
+/* Coluna 2 (Qtd): título e células centralizados */
+.resumo-table th:nth-child(2),
+.resumo-table td:nth-child(2) {
+    text-align: center;
+}
+/* Colunas 3, 4 e 5 (Entradas / Saídas / Total): título e células à direita */
+.resumo-table th:nth-child(n+3),
 .resumo-table td:nth-child(n+3) {
     text-align: right;
 }
