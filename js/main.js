@@ -7,6 +7,7 @@
 import * as XLSX from './vendor/xlsx.mjs';
 import { readFile } from './uploader.js';
 import { inferMapping } from './mapper.js';
+import { loadMapping, saveMapping } from './storage.js';
 import { renderMappingSelects, validateMapping, normalizeConfig } from './mappingUi.js';
 import { buildRecords } from './records.js';
 import { reconcile } from './engine.js';
@@ -153,8 +154,10 @@ elFileB.addEventListener('change', () => handleFileChange(elFileB, elStatusB, 'B
 elBtnAnalisar.addEventListener('click', () => {
   if (!state.fileA || !state.fileB) return;
   clearMessage();
-  state.mappingA = inferMapping(state.fileA.columns);
-  state.mappingB = inferMapping(state.fileB.columns);
+  // Microentrega 39: mapeamento lembrado (por layout) tem prioridade;
+  // sem lembrança, inferência automática. Selects seguem editáveis (D7).
+  state.mappingA = loadMapping('A', state.fileA.columns) || inferMapping(state.fileA.columns);
+  state.mappingB = loadMapping('B', state.fileB.columns) || inferMapping(state.fileB.columns);
   state.config = null;
   renderMappingPanel(elMappingA, state.fileA.columns, state.mappingA);
   renderMappingPanel(elMappingB, state.fileB.columns, state.mappingB);
@@ -197,6 +200,9 @@ elBtnConciliar.addEventListener('click', () => {
     return;
   }
 
+  // Microentrega 39: persiste o mapeamento efetivamente usado (por layout)
+  saveMapping('A', state.fileA.columns, state.mappingA);
+  saveMapping('B', state.fileB.columns, state.mappingB);
   state.recordsA = buildRecords(state.fileA.rows, state.mappingA, { source: 'A' });
   state.recordsB = buildRecords(state.fileB.rows, state.mappingB, { source: 'B' });
 
