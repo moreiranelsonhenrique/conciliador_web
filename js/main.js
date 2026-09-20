@@ -330,6 +330,11 @@ elLista.addEventListener('click', (e) => {
         return;
       }
       rv.applyManualMatch(newBId, state.registry);
+      // Se veio de rejeição, volta para PENDING (vínculo novo, decisão nova)
+      if (rv.human_decision === 'REJECTED') {
+      rv.human_decision = 'PENDING';
+      rv.result.human_decision = 'PENDING';
+      }
       state.correctingAId = null;
       renderResultados();
       showMessage('Vínculo manual aplicado. Confirme para finalizar a revisão.', 'success');
@@ -340,6 +345,27 @@ elLista.addEventListener('click', (e) => {
     }
   } catch (err) {
     showMessage(`Erro na ação: ${err.message}`, 'error');
+  }
+});
+
+// Busca no formulário de conciliação manual (re-renderiza o select filtrado)
+elLista.addEventListener('input', (e) => {
+  const input = e.target;
+  if (!input || input.dataset.role !== 'correct-search') return;
+  const form = input.closest('.correct-form');
+  if (!form) return;
+  const aId = form.dataset.aId;
+  const rv = findReviewable(aId);
+  if (!rv) return;
+  renderCorrectMode(rv, input.value);
+  // Mantém o foco no campo de busca após o re-render
+  const novo = elLista.querySelector(
+    `.correct-form[data-a-id="${CSS.escape(aId)}"] [data-role="correct-search"]`
+  );
+  if (novo) {
+    novo.focus();
+    const len = novo.value.length;
+    novo.setSelectionRange(len, len);
   }
 });
 
@@ -382,7 +408,7 @@ function undoReject(rv) {
 /**
  * Substitui as ações de um cartão pelo formulário de correção.
  */
-function renderCorrectMode(rv) {
+function renderCorrectMode(rv, filterTerm = '') {
   const card = elLista.querySelector(
     `.result-card[data-a-id="${CSS.escape(rv.a_id)}"]`
   );
@@ -393,7 +419,7 @@ function renderCorrectMode(rv) {
   const availableBs = availableIds
     .map((id) => state.registry.get(id))
     .filter(Boolean);
-  actionsContainer.innerHTML = renderCorrectForm(rv, availableBs);
+  actionsContainer.innerHTML = renderCorrectForm(rv, availableBs, filterTerm);
 }
 
 // ---------------------------------------------------------------------------

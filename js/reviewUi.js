@@ -1,7 +1,13 @@
 /**
  * Lógica pura da UI de revisão humana (sem DOM).
- * Gera HTML dos botões de ação e do formulário de correção manual.
+ * Gera HTML dos botões de ação e do formulário de conciliação manual.
  * main.js é responsável por eventos e escrita no DOM.
+ *
+ * Microentrega 37 (Ciclo 2):
+ * - "Corrigir vínculo" deixa de existir em cartões com vínculo.
+ * - "Conciliar manualmente" aparece apenas sem vínculo:
+ *   após rejeição (1:1) ou quando nada foi encontrado.
+ * - Formulário ganha busca para filtrar registros B disponíveis.
  */
 
 /**
@@ -46,32 +52,45 @@ function formatShortMoney(value) {
 
 /**
  * Gera o HTML dos botões de ação para um ReviewableResult.
- * Retorna string vazia para estados que não têm ações disponíveis.
+ *
+ * Política da Microentrega 37:
+ * - Com vínculo: Confirmar (se pendente) + Rejeitar. SEM "Corrigir vínculo".
+ * - Rejeitado (1:1): Desfazer rejeição (se havia vínculo original)
+ *   + Conciliar manualmente.
+ * - Rejeitado (lote): apenas Desfazer rejeição (edição de lotes é V6.1 — D4).
+ * - Sem vínculo (não encontrado, 1:1): Conciliar manualmente.
  *
  * @param {Object} rv  ReviewableResult
  * @returns {string}  HTML dos botões
  */
 export function renderActionButtons(rv) {
   if (!rv || !rv.result) return '';
-
   const aId = escapeHtml(rv.a_id);
   const review = rv.human_decision;
   const hasLink = rv.has_link;
   const isBatch = rv.is_batch;
 
-  // Rejeitado: única ação é desfazer (restaurar vínculo original)
+  const manualButton =
+    `<button class="btn-action btn-correct" data-action="correct" data-a-id="${aId}">` +
+    `🔧 Conciliar manualmente</button>`;
+
+  // Rejeitado
   if (review === 'REJECTED') {
+    const buttons = [];
     const canUndo = (rv.original_b_id != null) ||
                     (Array.isArray(rv.original_batch_ids) && rv.original_batch_ids.length > 0);
-    if (!canUndo) return '';
-    return (
-      `<button class="btn-action btn-undo" data-action="undo-reject" data-a-id="${aId}">` +
-      `↩️ Desfazer rejeição</button>`
-    );
+    if (canUndo) {
+      buttons.push(
+        `<button class="btn-action btn-undo" data-action="undo-reject" data-a-id="${aId}">` +
+        `↩️ Desfazer rejeição</button>`
+      );
+    }
+    // Ajuste manual só para 1:1 (lotes: confirmação/rejeição inteiras — D4)
+    if (!isBatch) buttons.push(manualButton);
+    return buttons.join('');
   }
 
   const buttons = [];
-
   // Confirmar: disponível se tem vínculo e ainda não está confirmado
   if (hasLink && review !== 'CONFIRMED') {
     buttons.push(
@@ -79,7 +98,6 @@ export function renderActionButtons(rv) {
       `✅ Confirmar</button>`
     );
   }
-
   // Rejeitar: disponível se tem vínculo
   if (hasLink) {
     buttons.push(
@@ -87,31 +105,51 @@ export function renderActionButtons(rv) {
       `❌ Rejeitar</button>`
     );
   }
-
-  // Corrigir: apenas para 1:1 (não para lotes)
-  if (!isBatch) {
-    // "Corrigir" se já tem vínculo; "Conciliar manualmente" se não tem
-    const label = hasLink ? '🔧 Corrigir vínculo' : '🔧 Conciliar manualmente';
-    buttons.push(
-      `<button class="btn-action btn-correct" data-action="correct" data-a-id="${aId}">` +
-      `${label}</button>`
-    );
+  // Conciliar manualmente: apenas 1:1 e apenas SEM vínculo
+  if (!isBatch && !hasLink) {
+    buttons.push(manualButton);
   }
-
   return buttons.join('');
 }
 
 /**
- * Gera o HTML do formulário de correção manual (select de Bs disponíveis + ações).
+ * Filtra registros B disponíveis por termo de busca
+ * (linha, data dd/mm/aaaa, descrição ou valor).
+ * Termo vazio retorna todos.
+ *
+ * @param {Array<Object>} availableBs  Registros B disponíveis
+ * @param {string} term  Termo de busca
+ * @returns {Array<Object>}  Registros que casam com o termo
+ */
+export function filterAvailableBs(availableBs, term) {
+  const list = Array.isArray(availableBs) ? availableBs : [];
+  const t = String(term == null ? '' : term).toLowerCase().trim();
+  if (!t) return list;
+  return list.filter((b) => {
+    if (!b) return false;
+    const linha = b.original_row != null ? String(b.original_row) : '';
+    const data = formatDateBR(b.date);
+    const desc = String(b.description_original || '').toLowerCase();
+    const valor = formatShortMoney(b.value).toLowerCase();
+    return linha.includes(t) || data.includes(t) || desc.includes(t) || valor.includes(t);
+  });
+}
+
+/**
+ * Gera o HTML do formulário de conciliação manual
+ * (busca + select de Bs disponíveis + ações).
  *
  * @param {Object} rv  ReviewableResult
  * @param {Array<Object>} availableBs  Registros B disponíveis (do registry)
+ * @param {string} [filterTerm]  Termo de busca para filtrar as opções
  * @returns {string}  HTML do formulário
  */
-export function renderCorrectForm(rv, availableBs) {
+export function renderCorrectForm(rv, availableBs, filterTerm = '') {
   if (!rv || !rv.result) return '';
   const aId = escapeHtml(rv.a_id);
-  const list = Array.isArray(availableBs) ? availableBs : [];
+  const term = String(filterTerm == null ? '' : filterTerm);
+  const all = Array.isArray(availableBs) ? availableBs : [];
+  const list = filterAvailableBs(all, term);
 
   let options = '<option value="">(selecione um registro B)</option>';
   for (const b of list) {
@@ -126,7 +164,9 @@ export function renderCorrectForm(rv, availableBs) {
   return (
     `<div class="correct-form" data-a-id="${aId}">` +
     `<label>Selecione o registro B para vincular:</label>` +
+    `<input type="search" data-role="correct-search" placeholder="Buscar por linha, data, descrição ou valor..." value="${escapeHtml(term)}">` +
     `<select data-role="correct-b">${options}</select>` +
+    `<p class="hint">${list.length} de ${all.length} registro(s) disponível(is).</p>` +
     `<div class="correct-form-actions">` +
     `<button class="btn-action btn-apply" data-action="apply-correct" data-a-id="${aId}">Aplicar</button>` +
     `<button class="btn-action btn-cancel" data-action="cancel-correct" data-a-id="${aId}">Cancelar</button>` +
