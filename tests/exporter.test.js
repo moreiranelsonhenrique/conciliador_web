@@ -218,4 +218,81 @@ describe('exportToExcel', () => {
     expect(ws[addr].z).toBe('dd/mm/yyyy');
     expect(ws[addr].v).toBe(46280); // serial Excel de 15/09/2026
   });
+  // ---------------------------------------------------------------------------
+// Microentrega 43 — capa RESUMO_CONCILIACAO no export
+// ---------------------------------------------------------------------------
+describe('exportToExcel — capa RESUMO_CONCILIACAO (M43)', () => {
+  it('adiciona aba RESUMO_CONCILIACAO quando coverSheet é fornecido', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const coverSheet = {
+      rows: [
+        ['CONCILIAÇÃO BANCÁRIA', '', ''],
+        ['Empresa:', 'ABC LTDA', ''],
+      ],
+      summary: {},
+      tying: {},
+    };
+    const output = exportToExcel([makeResult(a, b)], { coverSheet });
+    expect(output.workbook.SheetNames[0]).toBe('RESUMO_CONCILIACAO');
+    expect(output.workbook.Sheets['RESUMO_CONCILIACAO']).toBeDefined();
+    expect(output.coverSheet).toBe(coverSheet);
+  });
+
+  it('não adiciona capa quando coverSheet não é fornecido', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const output = exportToExcel([makeResult(a, b)]);
+    expect(output.workbook.SheetNames).not.toContain('RESUMO_CONCILIACAO');
+  });
+});
+// ---------------------------------------------------------------------------
+// Microentrega 44 — abas analíticas BANCO e FINANCEIRO
+// ---------------------------------------------------------------------------
+describe('exportToExcel — abas analíticas BANCO e FINANCEIRO (M44)', () => {
+  it('cria as 2 abas analíticas com cabeçalho correto', () => {
+    const a = makeRecord('A0', 'A', '100.00', '2026-09-15', 'X');
+    const b = makeRecord('B0', 'B', '100.00', '2026-09-15', 'X');
+    const rv = new ReviewableResult(makeResult(a, b));
+    rv.confirm();
+    const output = exportToExcel([rv], {
+      reviewables: [rv],
+      recordsB: [b],
+      fileARows: [],
+      fileBRows: [],
+      mappingA: {},
+      mappingB: {},
+    });
+    expect(output.workbook.SheetNames).toContain('BANCO');
+    expect(output.workbook.SheetNames).toContain('FINANCEIRO');
+    const wsBanco = output.workbook.Sheets['BANCO'];
+    expect(wsBanco.A1.v).toBe('Linha');
+    expect(wsBanco.G1.v).toBe('STATUS');
+    expect(wsBanco.H1.v).toBe('CHAVE_CONCILIACAO');
+    expect(wsBanco.I1.v).toBe('CONFIANCA_PCT');
+  });
+
+  it('lote gera confiança em branco (D6) e legenda é incluída', () => {
+    const a = makeRecord('A0', 'A', '300.00', '2026-09-15', 'LOTE');
+    const b1 = makeRecord('B0', 'B', '100.00', '2026-09-15', 'I1');
+    const b2 = makeRecord('B1', 'B', '200.00', '2026-09-15', 'I2');
+    const rv = new ReviewableResult(makeResult(a, null, [b1, b2]));
+    rv.confirm();
+    const output = exportToExcel([rv], {
+      reviewables: [rv],
+      recordsB: [b1, b2],
+      fileARows: [],
+      fileBRows: [],
+      mappingA: {},
+      mappingB: {},
+    });
+    const wsBanco = output.workbook.Sheets['BANCO'];
+    // Linha 2 (primeira de dados) — CONFIANCA_PCT deve estar vazio
+    expect(wsBanco.I2.v).toBe('');
+    // Última linha tem a legenda
+    const lastRow = Object.keys(wsBanco).filter((k) => k.startsWith('A')).length;
+    expect(wsBanco[`A${lastRow}`].v).toBe('Legenda:');
+    expect(wsBanco[`B${lastRow}`].v).toContain('lotes não possuem score');
+  });
+});
 });

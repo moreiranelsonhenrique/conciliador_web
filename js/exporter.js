@@ -1,5 +1,6 @@
 import * as XLSX from './vendor/xlsx.mjs';
 import { findUnmatchedB, formatDateBR as formatDateBRUi, formatMoneyOrInvalid } from './resultsUi.js';
+import { buildBankRows, buildFinancialRows, LEGENDA_CONFIANCA } from './analyticalSheet.js';
 
 /**
  * Formata uma data Date para string dd/mm/yyyy.
@@ -271,6 +272,48 @@ export function exportToExcel(results, options = {}) {
 
   // Cria workbook
   const wb = XLSX.utils.book_new();
+
+  // Microentrega 43: capa RESUMO_CONCILIACAO como primeira aba (quando fornecida)
+  if (options.coverSheet && Array.isArray(options.coverSheet.rows) && options.coverSheet.rows.length > 0) {
+    const wsCapa = XLSX.utils.aoa_to_sheet(options.coverSheet.rows);
+    wsCapa['!cols'] = [{ wch: 42 }, { wch: 25 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, wsCapa, 'RESUMO_CONCILIACAO');
+  }
+
+  // Microentrega 44: abas analíticas BANCO (A) e FINANCEIRO (B)
+  const tolerance = options.tolerance || '0.01';
+  const bankRows = buildBankRows(
+    options.reviewables || results,
+    options.fileARows || [],
+    options.mappingA || {},
+    tolerance
+  );
+  const financialRows = buildFinancialRows(
+    options.reviewables || results,
+    options.recordsB || [],
+    options.fileBRows || [],
+    options.mappingB || {},
+    tolerance
+  );
+  const analyticHeaders = [
+    'Linha', 'Data', 'Descricao', 'Valor', 'Direcao', 'Saldo',
+    'STATUS', 'CHAVE_CONCILIACAO', 'CONFIANCA_PCT', 'REF_LINHA_MATCH',
+  ];
+  const buildAnalyticSheet = (rows, sheetName) => {
+    const matrix = [
+      analyticHeaders.map((h) => ({ t: 's', v: h })),
+      ...rows.map((row) => analyticHeaders.map((h) => toCell(h, row[h]))),
+      // Linha de legenda (D6) ao final
+      [{ t: 's', v: 'Legenda:' }, { t: 's', v: LEGENDA_CONFIANCA }],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(matrix);
+    ws['!cols'] = analyticHeaders.map((h) => ({ wch: Math.max(h.length + 2, 14) }));
+    ws['!cols'][0].wch = 20; // legenda
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  };
+  buildAnalyticSheet(bankRows, 'BANCO');
+  buildAnalyticSheet(financialRows, 'FINANCEIRO');
+
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
     // Microentrega B: aba Detalhe_dos_Lotes (uma linha por item de lote)
@@ -302,6 +345,7 @@ export function exportToExcel(results, options = {}) {
     blob,
     rows,
     batchDetailRows,
+    coverSheet: options.coverSheet || null,
   };
 }
 

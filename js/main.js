@@ -29,6 +29,7 @@ import {
 } from './resultsUi.js';
 import { extractReportedBalances, checkSides } from './balanceCheck.js';
 import { formatBRL } from './money.js';
+import { buildCoverSheet } from './coverSheet.js';
 import { renderActionButtons, renderCorrectForm } from './reviewUi.js';
 import { exportToExcel, downloadExcel } from './exporter.js';
 
@@ -600,17 +601,47 @@ function renderCorrectMode(rv, filterTerm = '') {
 elBtnExportar.addEventListener('click', () => {
   if (!state.reviewables || state.reviewables.length === 0) return;
   try {
+    // Microentrega 43: monta capa RESUMO_CONCILIACAO antes de gerar o Excel
+    const periodoDe = state.periodoRelatorio && state.periodoRelatorio.de
+      ? new Date(state.periodoRelatorio.de)
+      : (state.periodoA && state.periodoA.de) || null;
+    const periodoAte = state.periodoRelatorio && state.periodoRelatorio.ate
+      ? new Date(state.periodoRelatorio.ate)
+      : (state.periodoA && state.periodoA.ate) || null;
+    const coverSheet = buildCoverSheet({
+      empresa: document.getElementById('empresa')?.value || '',
+      banco: document.getElementById('banco')?.value || '',
+      agConta: document.getElementById('ag-conta')?.value || '',
+      periodoDe,
+      periodoAte,
+      diagnostico: state.diagnostico,
+      reviewables: state.reviewables,
+      recordsB: state.recordsB,
+      tolerance: document.getElementById('saldo-tol')?.value || '0.01',
+    });
     const output = exportToExcel(state.reviewables, {
       fileName: 'conciliacao_v6',
       sheetName: 'Conciliação',
       unmatchedB: state.reviewables,
       recordsB: state.recordsB,
+      coverSheet,
+      // Microentrega 44: dados para abas analíticas
+      reviewables: state.reviewables,
+      fileARows: state.fileA ? state.fileA.rows : [],
+      fileBRows: state.fileB ? state.fileB.rows : [],
+      mappingA: state.mappingA || {},
+      mappingB: state.mappingB || {},
+      tolerance: document.getElementById('value-tol')?.value || '0.01',
     });
     // Sobras são incluídas na aba principal. Se preferir aba separada no futuro,
     // basta mover as linhas para outra sheet via XLSX.utils.
     if (output.blob) {
       downloadExcel(output.blob, output.fileName);
-      showMessage(`Arquivo ${output.fileName} baixado.`, 'success');
+      const temCapa = output.coverSheet && output.coverSheet.rows && output.coverSheet.rows.length > 0;
+      showMessage(
+        `Arquivo ${output.fileName} baixado${temCapa ? ' (com capa RESUMO_CONCILIACAO).' : '.'}`,
+        'success'
+      );
     } else {
       showMessage('Não foi possível gerar o arquivo neste ambiente.', 'error');
     }
