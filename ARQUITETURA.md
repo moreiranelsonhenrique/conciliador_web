@@ -1,225 +1,136 @@
 # Arquitetura Técnica — Conciliador V6 Web
-
-**Data:** 18/09/2026  
-**Stack:** HTML + CSS + JavaScript (ES modules) + Vite + Vitest
-
----
+Data: 23/09/2026
 
 ## 1. Visão Geral
+Aplicação web client-side (SPA) para conciliação bancária. Processamento 100% no navegador, sem backend. Dados nunca saem do computador do usuário.
 
-Aplicação web estática (Single Page Application) que roda 100% no navegador.
+## 2. Stack Tecnológica
+- **Frontend:** HTML5 + CSS3 + JavaScript (ES Modules)
+- **Precisão financeira:** decimal.js
+- **Leitura CSV:** PapaParse (delimitador auto-detectado)
+- **Leitura Excel:** SheetJS 0.20.3 (via vendor, nunca npm)
+- **Leitura OFX:** Parser próprio (SGML/XML)
+- **Build:** Vite
+- **Testes:** Vitest
+- **Deploy:** GitHub Pages via GitHub Actions
 
-**Sem backend. Sem banco de dados. Sem servidor.**
-
-Todos os arquivos são processados localmente usando APIs do navegador (FileReader, localStorage).
-
----
-
-## 2. Estrutura de Pastas
+## 3. Estrutura de Diretórios
 
 conciliador_web/
 ├── index.html # Página principal (SPA)
 ├── css/
 │ └── style.css # Estilos globais
 ├── js/
-│ ├── money.js # Formatação monetária (R$, precisão decimal)
-│ ├── reader.js # Leitura de arquivos (CSV, Excel, OFX)
-│ ├── mapper.js # Inferência automática de colunas (a criar)
-│ ├── scorer.js # Cálculo de scores (a criar)
-│ ├── matcher.js # Matching 1:1 e 1:N (a criar)
-│ ├── review.js # Estado de revisão humana (a criar)
-│ └── exporter.js # Exportação Excel (a criar)
-├── tests/
-│ ├── sanity.test.js # Teste de sanidade
-│ ├── money.test.js # Testes de money.js
-│ ├── reader.test.js # Testes de reader.js
-│ └── ... # Testes dos outros módulos
-├── samples/ # Arquivos de exemplo para teste manual
-├── package.json # Dependências e scripts
-├── vite.config.js # Configuração do Vite (a criar)
-└── README.md # Visão geral do projeto
+│ ├── vendor/
+│ │ └── xlsx.mjs # SheetJS 0.20.3 (vendor oficial)
+│ ├── money.js # Formatação R$ (decimal.js)
+│ ├── reader.js # Leitura CSV/Excel
+│ ├── ofxReader.js # Leitura OFX
+│ ├── headerDetection.js # Detecção de cabeçalho
+│ ├── mapper.js # Inferência de mapeamento (5 papéis + saldo)
+│ ├── direction.js # Normalização ENTRADA/SAIDA/INDEFINIDO
+│ ├── records.js # Normalização e validação
+│ ├── scorer.js # Scoring (50/20/30)
+│ ├── matcher.js # Matching 1:1 e 1:N
+│ ├── classifier.js # Classificação final
+│ ├── engine.js # Orquestração
+│ ├── review.js # Revisão humana
+│ ├── storage.js # Persistência de mapeamento
+│ ├── balanceCheck.js # Controle de saldos (núcleo puro)
+│ ├── coverSheet.js # Capa RESUMO_CONCILIACAO
+│ ├── analyticalSheet.js # Abas BANCO e FINANCEIRO
+│ ├── exporter.js # Exportação Excel
+│ ├── uploader.js # Upload de arquivos
+│ ├── mappingUi.js # UI de mapeamento (lógica pura)
+│ ├── resultsUi.js # UI de resultados (lógica pura)
+│ ├── reviewUi.js # UI de revisão (lógica pura)
+│ └── main.js # Orquestração DOM
+├── tests/ # Testes Vitest (22 arquivos)
+├── samples/ # Arquivos de exemplo (V1–V9)
+├── .github/
+│ └── workflows/
+│ └── deploy.yml # CI/CD GitHub Pages
+├── HANDOFF.md # Guia de continuidade
+├── SPEC_V6_WEB.md # Especificação funcional
+├── ARQUITETURA.md # Este arquivo
+├── ROADMAP_V6_1.md # Decisões e plano do Ciclo 2
+└── VALIDACAO_WEB.md # Validação ponta a ponta
 
-
----
-
-## 3. Fluxo de Dados
-
-[Upload de Arquivos]
-↓
-[Leitura] → reader.js (parseCSVString, parseExcel, parseOFX)
-↓
-[Detecção de Cabeçalho] → header_detection.js (a criar)
-↓
-[Mapeamento de Colunas] → mapper.js (infer_mapping)
-↓
-[Revisão Humana do Mapeamento] → UI (ajuste manual se necessário)
-↓
-[Normalização] → records.js (build_records, normaliza direção PT/EN)
-↓
-[Conciliação] → engine.js (reconcile)
-↓
-[Scoring] → scorer.js (score_valor, score_data, score_texto)
-↓
-[Matching] → matcher.js (find_matches_1_to_1, find_batch_matches)
-↓
-[Classificação] → classifier.js (classify_status)
-↓
-[Revisão Humana] → review.js (confirm, reject, correct)
-↓
-[Exportação] → exporter.js (export_to_excel)
-
-
----
 
 ## 4. Módulos (Responsabilidades)
-
 ### 4.1 Módulos de negócio (puros, sem DOM)
 - `money.js` — Formatação R$ com decimal.js (HALF_EVEN)
 - `reader.js` — Leitura CSV (PapaParse) e Excel (SheetJS)
 - `ofxReader.js` — Leitura OFX (parser próprio)
 - `headerDetection.js` — Detecção automática de linha de cabeçalho
-- `mapper.js` — Inferência de mapeamento de colunas
+- `mapper.js` — Inferência de mapeamento (6 papéis: date, value, description, dc, type, balance)
 - `direction.js` — Normalização de direção PT/EN → ENTRADA/SAIDA/INDEFINIDO
-- `records.js` — Normalização e validação de registros (parseDate, parseValue, buildRecords)
+- `records.js` — Normalização e validação de registros
 - `scorer.js` — Scoring ponderado (valor 50 / data 20 / texto 30)
-- `matcher.js` — Matching 1:1 (greedy) e 1:N (lotes com busca combinatória limitada)
+- `matcher.js` — Matching 1:1 (greedy) e 1:N (lotes com ambiguidade)
 - `classifier.js` — Classificação final (CONCILIADO, POSSÍVEL, DIVERGÊNCIA, NÃO ENCONTRADO)
-- `engine.js` — Orquestração: gera candidatos → matches 1:1 → lotes → classifica
+- `engine.js` — Orquestração: candidatos → matches → lotes → classificação
 - `review.js` — Estado de revisão humana (BRegistry, ReviewableResult)
-- `exporter.js` — Exportação Excel (SheetJS) + sobras de B
+- `storage.js` — Persistência de mapeamento em localStorage
+- `balanceCheck.js` — Controle de saldos (saldo calculado, informado × calculado, amarração)
+- `coverSheet.js` — Construtor da capa RESUMO_CONCILIACAO
+- `analyticalSheet.js` — Construtores das abas BANCO e FINANCEIRO
+- `exporter.js` — Exportação Excel (4 abas + sobras)
 
 ### 4.2 Módulos de UI (lógica pura, sem DOM)
-- `mappingUi.js` — Gera HTML de selects de mapeamento + valida mapeamento + normaliza config
-- `resultsUi.js` — Gera HTML de cartões, tabela de resumo, filtros + findUnmatchedB (sobras de B)
-- `reviewUi.js` — Gera HTML de botões de ação (confirmar/rejeitar/corrigir) e formulário de correção
+- `mappingUi.js` — Gera HTML de selects + valida mapeamento + normaliza config
+- `resultsUi.js` — Gera HTML de cartões, resumo, filtros, sobras, pendências, período, diagnóstico
+- `reviewUi.js` — Gera HTML de botões de ação e formulário de correção
 
 ### 4.3 Orquestração (com DOM)
-- `main.js` — Liga eventos do DOM aos módulos puros, gerencia estado global da sessão
-
-### 4.4 `records.js` (a criar)
-
-- `buildRecords(rows, mapping)` → Array de objetos normalizados
-- Normaliza direção (PT/EN → ENTRADA/SAÍDA)
-- Valida valores e datas
-- Similar ao `core/records.py`
-
-### 4.5 `scorer.js` (a criar)
-
-- `scoreValue(a, b, tolerance)` → 0 a 50
-- `scoreDate(a, b, tolerance_days)` → 0 a 20
-- `scoreText(a, b, min_similarity)` → 0 a 30
-- Similar ao `core/scorer.py`
-
-### 4.6 `matcher.js` (a criar)
-
-- `generateCandidates(recordsA, recordsB)` → Array de candidatos
-- `findMatches1to1(candidates, config)` → Array de matches
-- `findBatchMatches(recordsA, recordsB, config)` → Array de lotes
-- Similar ao `core/matcher.py`
-
-### 4.7 `classifier.js` (a criar)
-
-- `classifyStatus(match, candidates)` → "CONCILIADO" | "POSSÍVEL" | "DIVERGÊNCIA" | "NÃO ENCONTRADO"
-- Similar ao `core/classifier.py`
-
-### 4.8 `review.js` (a criar)
-
-- Classe `ReviewableResult` (estado de revisão)
-- Classe `BRegistry` (controle de disponibilidade de registros B)
-- Métodos: `confirm()`, `reject()`, `applyManualMatch()`
-- Similar ao `core/review.py`
-
-### 4.9 `exporter.js` (a criar)
-
-- `exportToExcel(results)` → Blob (arquivo .xlsx)
-- Usa SheetJS para gerar o Excel
-- Uma aba, uma linha por registro A
-
----
+- `main.js` — Liga eventos do DOM aos módulos puros, gerencia estado global
 
 ## 5. Dependências
-
-| Pacote | Versão | Para que |
+| Dependência | Versão | Uso |
 |---|---|---|
-| `decimal.js` | ^10.4.3 | Precisão financeira |
-| `papaparse` | ^5.4.1 | Leitura de CSV |
-| SheetJS | 0.20.3 (vendor) | Leitura e escrita de Excel via `js/vendor/xlsx.mjs` (npm `xlsx` 0.18.5 tem vulnerabilidade alta — não usar) |
-| `vite` | ^5.0.0 | Dev server e build |
-| `vitest` | ^1.0.0 | Testes automatizados |
+| decimal.js | ^10.x | Precisão financeira |
+| papaparse | ^5.x | Leitura de CSV |
+| vitest | ^5.x | Testes |
+| vite | ^8.x | Build e dev server |
+| SheetJS | 0.20.3 (vendor) | Leitura e escrita de Excel via `js/vendor/xlsx.mjs` |
 
----
+**Nota:** O pacote npm `xlsx` (0.18.5) tem vulnerabilidade alta — NÃO instalar. Usar sempre o vendor oficial.
 
-## 6. Convenções
+## 6. Fluxo de Dados
 
-### 6.1 Nomes de Arquivos
+Upload → Leitura (reader/ofxReader) → Detecção de cabeçalho → Mapeamento (mapper)
+→ Normalização (records) → Scoring (scorer) → Matching (matcher)
+→ Classificação (classifier) → Revisão (review) → Exportação (exporter + coverSheet + analyticalSheet)
 
-- Módulos: camelCase (`money.js`, `reader.js`)
-- Testes: `<module>.test.js` (`money.test.js`)
-- Styles: kebab-case (`style.css`)
 
-### 6.2 Nomes de Funções
+## 7. Persistência
+- **Mapeamento:** localStorage (chave = hash do layout de colunas)
+- **Decisões humanas:** apenas na sessão (memória)
+- **Arquivos:** nunca persistidos (privacidade)
 
-- camelCase: `formatBRL`, `parseCSVString`, `inferMapping`
-- Verbos no início: `parse`, `infer`, `build`, `score`, `export`
-
-### 6.3 Nomes de Variáveis
-
-- camelCase: `recordsA`, `mappingResult`, `scoreTotal`
-
-### 6.4 Comentários
-
-- JSDoc para funções públicas:
-
-```javascript
-/**
- * Formata um valor como moeda brasileira.
- * @param {Decimal|string|number} value
- * @returns {string} "R$ 1.234,56"
- */
-export function formatBRL(value) { ... }
-
-7. Padrões de Teste
-7.1 Estrutura de Teste
-
-import { describe, it, expect } from 'vitest';
-import { formatBRL } from '../js/money.js';
-
-describe('formatBRL', () => {
-  it('formata valor positivo', () => {
-    expect(formatBRL('1500.00')).toBe('R$ 1.500,00');
-  });
-});
-
-7.2 Cobertura Esperada
-Todos os módulos devem ter testes unitários
-Casos de borda: valores negativos, zero, strings vazias, null
-Casos de erro: argumentos inválidos devem lançar exceções
-
-7.3 Execução
-
-npm test          # Roda todos os testes
-npm test --watch  # Modo watch (reexecuta ao salvar)
-
-8. Build e Deploy
-8.1 Build Local
+## 8. Build e Deploy
+### 8.1 Build Local
+```bash
 npm run build     # gera dist/
 npm run preview   # serve o build localmente
-Observação: Vite 8 usa minificador padrão (oxc). Não configurar `minify: 'esbuild'` — o esbuild não vem embutido no Vite 8.
 
-8.2 Deploy no GitHub Pages
-Push para o repositório GitHub
-Ativar GitHub Pages nas configurações (branch main, pasta dist/)
-Acessar: https://<username>.github.io/<repo-name>/
+Observação: Vite 8 usa minificador padrão (oxc). Não configurar minify: 'esbuild'.
+8.2 Deploy Automático
+GitHub Actions (.github/workflows/deploy.yml):
+Checkout do código
+Instala dependências
+Roda testes (405 testes)
+Build de produção
+Upload do artefato (pasta dist/)
+Deploy no GitHub Pages
+Gatilho: push na branch main.
+9. Segurança e Privacidade
+Nenhum dado é enviado para servidores externos
+Nenhum uso de analytics ou tracking
+SheetJS carregado localmente (vendor)
+CSP recomendada para GitHub Pages (default-src 'self')
+10. Limitações Conhecidas
+SheetJS comunitário: não aplica cores/negrito em células (estrutura apenas)
+PDF: não suportado (formato não estruturado viola princípios)
+Edição de lotes item a item: adiada para V6.1
 
-9. Limitações Conhecidas
-9.1 Performance
-Arquivos muito grandes (>10.000 linhas) podem travar o navegador
-Mitigação: paginação ou processamento em Web Workers (futuro)
-
-9.2 Persistência
-Decisões humanas não persistem entre sessões
-Mitigação: exportar Excel frequentemente
-
-9.3 Compatibilidade
-Funciona em navegadores modernos (Chrome, Firefox, Edge, Safari)
-Não suporta Internet Explorer
