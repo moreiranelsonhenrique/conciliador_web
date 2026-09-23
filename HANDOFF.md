@@ -106,6 +106,16 @@ D6 — Confiança de lote: em branco + legenda.
 D7 — Sem botão "esquecer layouts"; selects sempre editáveis.
 Detalhes completos em ROADMAP_V6_1.md.
 
+## 5b. Decisões do Ciclo 3 (D8–D10) — aprovado 24/09/2026
+
+- **D8** — Sem revisão obrigatória antes do relatório. Export gera direto após conciliar; UI vira inspeção somente leitura (sem botões de ação).
+- **D9** — Lote único auto-concilia; lote ambíguo vira pendência com alternativas listadas (motivo escrito).
+- **D10** — Status canônico: `CONCILIADO`, `CONCILIADO_COM_DIFERENCA`, `PENDENTE_EXTRATO`, `PENDENTE_RAZAO`. Toda pendência recebe coluna MOTIVO.
+
+**Contrato da ferramenta (Ciclo 3):** tudo que foi conciliado automaticamente atende critérios declarados; tudo que não atende está em Pendências com o motivo escrito.
+
+Detalhes completos em `ROADMAP_V6_2.md`.
+
 6. Convenções
 Microentregas: um passo focado por entrega, sempre com teste e commit.
 Dinheiro: decimal.js (nunca float). Células do Excel recebem número apenas para exibição.
